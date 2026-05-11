@@ -1,0 +1,27 @@
+# ---- Build output ----
+build/
+out/
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+[Mm]inSizeRel/
+[Rr]elWithDebInfo/
+x64/
+x86/
+Win32/
+ARM/
+ARM64/
+
+# ---- CMake ----
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+CMakeUserPresets.json
+
+# ---- Reverse engineering (Ghidra projects, dumps, etc.) ----
+reverse/
