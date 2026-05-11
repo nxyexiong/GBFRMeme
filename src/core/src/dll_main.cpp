@@ -6,13 +6,8 @@
 // loaded this is a no-op (attach returns GBFR_ERR_NOT_FOUND), and the host
 // is free to call `gbfr_init(GBFR_ATTACH_INTERNAL, NULL)` later.
 
-#if defined(_WIN32)
-
 #include "gbfr/core/c_api.h"
 
-#ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-#endif
 #include <windows.h>
 
 BOOL WINAPI DllMain(HINSTANCE /*inst*/, DWORD reason, LPVOID /*reserved*/) {
@@ -30,5 +25,3 @@ BOOL WINAPI DllMain(HINSTANCE /*inst*/, DWORD reason, LPVOID /*reserved*/) {
     }
     return TRUE;
 }
-
-#endif // _WIN32

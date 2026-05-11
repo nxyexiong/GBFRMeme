@@ -14,17 +14,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#if defined(_WIN32)
-    #if defined(GBFR_CORE_BUILDING_DLL)
-        #define GBFR_CORE_API __declspec(dllexport)
-    #else
-        #define GBFR_CORE_API __declspec(dllimport)
-    #endif
-    #define GBFR_CORE_CALL __cdecl
+#if defined(GBFR_CORE_BUILDING_DLL)
+    #define GBFR_CORE_API __declspec(dllexport)
 #else
-    #define GBFR_CORE_API __attribute__((visibility("default")))
-    #define GBFR_CORE_CALL
+    #define GBFR_CORE_API __declspec(dllimport)
 #endif
+#define GBFR_CORE_CALL __cdecl
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,6 +53,11 @@ GBFR_CORE_API uint32_t   GBFR_CORE_CALL gbfr_api_version(void);
 GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_init(GbfrAttachMode mode, const wchar_t* executable_name);
 GBFR_CORE_API void       GBFR_CORE_CALL gbfr_shutdown(void);
 GBFR_CORE_API int        GBFR_CORE_CALL gbfr_is_initialized(void);
+
+// Block the calling thread until the UI host exits. For EXTERNAL/CLI
+// attach modes this returns once the user closes the host window. For
+// INTERNAL mode (and when no session is initialised) it returns immediately.
+GBFR_CORE_API void       GBFR_CORE_CALL gbfr_wait_for_exit(void);
 
 // ---------------------------------------------------------------------------
 // 2. CharacterManager

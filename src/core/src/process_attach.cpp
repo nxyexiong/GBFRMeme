@@ -1,18 +1,12 @@
 // SPDX-License-Identifier: MIT
 #include "gbfr/core/process_attach.hpp"
 
-#if defined(_WIN32)
-    #ifndef WIN32_LEAN_AND_MEAN
-        #define WIN32_LEAN_AND_MEAN
-    #endif
-    #include <windows.h>
-    #include <psapi.h>
-#endif
+#include <windows.h>
+#include <psapi.h>
 
 namespace gbfr::core {
 
 std::optional<ModuleInfo> find_loaded_module(const std::wstring& module_name) {
-#if defined(_WIN32)
     HMODULE h = ::GetModuleHandleW(module_name.c_str());
     if (h == nullptr) return std::nullopt;
 
@@ -24,10 +18,6 @@ std::optional<ModuleInfo> find_loaded_module(const std::wstring& module_name) {
     out.base = reinterpret_cast<Address>(h);
     out.size = mi.SizeOfImage;
     return out;
-#else
-    (void)module_name;
-    return std::nullopt;
-#endif
 }
 
 } // namespace gbfr::core

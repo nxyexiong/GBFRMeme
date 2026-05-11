@@ -1,19 +1,12 @@
 // SPDX-License-Identifier: MIT
 #include "gbfr/core/memory/external_memory.hpp"
 
-#if defined(_WIN32)
-    #ifndef WIN32_LEAN_AND_MEAN
-        #define WIN32_LEAN_AND_MEAN
-    #endif
-    #include <windows.h>
-    #include <psapi.h>
-    #include <tlhelp32.h>
-    #include <wctype.h>
-#endif
+#include <windows.h>
+#include <psapi.h>
+#include <tlhelp32.h>
+#include <wctype.h>
 
 namespace gbfr::core {
-
-#if defined(_WIN32)
 
 namespace {
 
@@ -112,22 +105,5 @@ bool ExternalMemory::write(gbfr::Address addr, const void* in, std::size_t size)
                               reinterpret_cast<LPVOID>(addr), in, size, &put) != 0
            && put == size;
 }
-
-#else  // !_WIN32
-
-std::unique_ptr<ExternalMemory> ExternalMemory::attach(std::uint32_t, const std::wstring&) {
-    return nullptr;
-}
-std::unique_ptr<ExternalMemory> ExternalMemory::attach_by_name(const std::wstring&) {
-    return nullptr;
-}
-ExternalMemory::ExternalMemory(std::uint32_t pid, void* handle,
-                               gbfr::Address module_base, std::size_t module_size) noexcept
-    : m_pid(pid), m_handle(handle), m_module_base(module_base), m_module_size(module_size) {}
-ExternalMemory::~ExternalMemory() = default;
-bool ExternalMemory::read(gbfr::Address, void*, std::size_t) const { return false; }
-bool ExternalMemory::write(gbfr::Address, const void*, std::size_t) { return false; }
-
-#endif // _WIN32
 
 } // namespace gbfr::core
