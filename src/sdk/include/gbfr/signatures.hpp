@@ -7,6 +7,10 @@
 //   * class-name strings in .rdata              (signatures::name_string)
 //   * known function RVAs                       (signatures::func)
 //   * fixed array / list sizes                  (signatures::count)
+//   * empty-key / "no entry" sentinels          (signatures::sentinel)
+//   * IDA-style byte patterns                   (signatures::pattern)
+//   * static instance / pointer slot RVAs       (signatures::instance / ::ptr_slot)
+//   * verified field offsets                    (signatures::offset)
 //
 // All addresses are recovered against the design-time image base
 // `0x140000000` (Ghidra default load). Translate to a live address with
@@ -16,6 +20,122 @@
 // `GBFR_TODO_OFFSET(...)` directly on the wrapper class that uses them, so
 // the macro and its placeholder value are visible at the call site. Once
 // verified, an offset migrates here under `signatures::offset::<scope>::*`.
+//
+// =========================================================================
+//  HOW TO UPDATE THIS FILE WHEN THE GAME PATCHES
+// =========================================================================
+//
+// Every constant in this file is keyed on the Ghidra static analysis of one
+// specific build of `granblue_fantasy_relink.exe`. After each game patch,
+// most of these RVAs *drift* (functions move, vtables shift, .data layout
+// changes). The byte-pattern entries under `signatures::pattern` and the
+// per-record `signatures::offset` values are usually more stable, but they
+// still need to be re-verified.
+//
+// The recovery workflow we use lives under `reverse/` and is built on
+// Ghidra headless scripting + the SDK's own debug CLI. The general loop:
+//
+// 1. Refresh the Ghidra project.
+//    * Open `reverse/20260510/` (or create a sibling folder for the new
+//      build) and re-import `granblue_fantasy_relink.exe`. Let Ghidra run
+//      its analyzers to completion.
+//    * Re-run the dump scripts in `reverse/scripts/` to refresh the
+//      reference TSVs:
+//        ExportProgramSummary.java   -> classes.txt, functions.tsv, exports.txt
+//        DumpVftables.java           -> all vtable layouts
+//        FindManagerSlots.java       -> manager_static_instances.tsv +
+//                                       manager_ptr_slots.tsv
+//        FindPlayerEntityVftables.java -> per-character vtable RVAs
+//          (consumed by `gbfr/character_types.hpp`, NOT this file)
+//
+// 2. Re-derive each section of this file from those outputs:
+//
+//    (a) `signatures::vft::*`
+//        Search Ghidra symbols for `<Class>::vftable` and copy the address.
+//        The 26 character vftables live in `character_types.hpp`, not here.
+//        SaveListBase / SaveTempListBase derivatives (CharaList, ItemList,
+//        GemList, ItemPendulumList, ...) appear in a contiguous RVA cluster
+//        under the save aggregate ctor — easy to spot in classes.txt.
+//
+//    (b) `signatures::name_string::*`
+//        Search `.rdata` for the exact ASCII class-name string used by
+//        `cyan::Singleton<T>` lookups (e.g. "CharacterManager",
+//        "UserDataManager"). Use `SearchSymbols.java` or grep `classes.txt`.
+//
+//    (c) `signatures::func::*`
+//        Cross-reference AppMainLoop's vtable (vft::kAppMainLoop) and copy
+//        the slot[1..3] function RVAs. The ctor address is recovered by
+//        finding the function that LEA-installs AppMainLoop::vftable
+//        (XREFs to vft::kAppMainLoop). `IdentifyVftables.java` prints
+//        these directly.
+//
+//    (d) `signatures::count::*`
+//        Slot caps come from the IMUL instructions inside the list ctor
+//        (e.g. `IMUL R14, R12, 0x3120` for CharaList stride; the explicit
+//        upper bound comparison gives the count). For ItemList / GemList /
+//        ItemPendulumList look at FUN_14007f460 (AppMainLoop tick) and the
+//        list-specific ctors it calls. The party size is fixed by the RTTI
+//        `array<..., 4>` template arg.
+//
+//    (e) `signatures::sentinel::kEmptyKey`
+//        Run `GBFRMeme.exe -c debug hash ""` against the new build. Should
+//        still print `0x887AE0B0` as long as the custom xxh32 seed constants
+//        (in `common.hpp`) are unchanged. If the value differs, the engine
+//        rotated its hash seeds and `common.hpp` itself needs an update
+//        first (see the `.rdata` SIMD init vector recovery instructions
+//        in `reverse/20260510/docs/scene-and-save-structure.md`).
+//
+//    (f) `signatures::pattern::*`
+//        Open the function that LEAs the PlayerStats pointer (search for
+//        the prior site or rediscover via XREFs to `find_local_player`'s
+//        Entity vtable). Re-extract the surrounding 23 instruction bytes
+//        and update the IDA-style mask; verify by running the SDK CLI:
+//          `GBFRMeme.exe -c debug scan-pattern "<new pattern>"`
+//        It should match exactly once. Update `kPlayerDataOffsetDispPos`
+//        if the disp32 moved within the pattern.
+//
+//    (g) `signatures::instance::*` and `signatures::ptr_slot::*`
+//        Drive from `manager_static_instances.tsv` /
+//        `manager_ptr_slots.tsv`. Each entry there has the vftable RVA the
+//        SDK references AND the .data RVA the script discovered, so cross-
+//        reference the SDK constant by class name. The `debug instances`
+//        CLI subcommand reads every entry and reports whether the
+//        dereferenced object's vftable still matches the SDK's expected
+//        vft RVA — easy regression check.
+//
+//    (h) `signatures::offset::*`
+//        These are field-byte-offsets inside specific records. Strategies:
+//          * save_list_base / chara_data: re-read the per-entry loop in
+//            FUN_14007f460. Look for the liveness-sentinel check and the
+//            key load.
+//          * save_aggregate: search XREFs to the per-list vftables and
+//            note the constant offsets that produce the list pointer.
+//          * save_data_unit: vftable layout is described in
+//            `IdentifyVftables.java` output for SaveDataUnit<int,1>.
+//          * user_save_block: see the "Currency / wallet" section of
+//            `reverse/20260510/docs/scene-and-save-structure.md`. Verify
+//            live by reading the rupie / mastery values after the SDK's
+//            `find_user_save_block` scan: `GBFRMeme.exe -c currency`.
+//          * item_list / gem_list / item_pendulum_list: stride is
+//            `sizeof(EntryRaw)` (static_assert in c_api.cpp catches drift);
+//            entries-offset is the constant added to the list pointer
+//            before the indexed load in the corresponding accessor.
+//
+// 3. Sanity-check against the live game.
+//    After updating, run the SDK CLI in `external` attach mode:
+//      `GBFRMeme.exe -c ping`                  -> module attach OK
+//      `GBFRMeme.exe -c debug instances`       -> all anchors resolve
+//      `GBFRMeme.exe -c characters`            -> CharaList walks
+//      `GBFRMeme.exe -c items`                 -> ItemList walks
+//      `GBFRMeme.exe -c sigils`                -> GemList walks
+//      `GBFRMeme.exe -c wrightstones`          -> ItemPendulumList walks
+//      `GBFRMeme.exe -c currency`              -> wallet discovery succeeds
+//      `GBFRMeme.exe -c combat`                -> PlayerStats offset works
+//
+// 4. Commit. Note which game-build (steam manifest id / executable hash)
+//    the file is keyed against in the commit message; the file itself is
+//    not multi-build aware.
+// =========================================================================
 #pragma once
 
 #include "common.hpp"
