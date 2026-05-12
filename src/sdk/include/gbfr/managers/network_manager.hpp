@@ -8,6 +8,7 @@
 #pragma once
 
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::managers {
 
@@ -15,20 +16,20 @@ class NetworkSystemRpcManager : public GameObject {
 public:
     using GameObject::GameObject;
     static constexpr std::string_view kSingletonName = "NetworkSystemRpcManager";
-    static constexpr Address kVftableRva = 0x1447fe5e0ULL;
+    static constexpr Address kVftableRva = signatures::vft::kNetworkSystemRpcManager;
 };
 
 class InitNetworkState : public GameObject {
 public:
     using GameObject::GameObject;
-    static constexpr Address kVftableRva = 0x1447fe778ULL;
+    static constexpr Address kVftableRva = signatures::vft::kNetworkInitNetworkState;
     // hw::network::StateMachine<Network::InitNetworkState> with N=2 states.
 };
 
 class InitMultiPlayState : public GameObject {
 public:
     using GameObject::GameObject;
-    static constexpr Address kVftableRva = 0x1447fe9c8ULL;
+    static constexpr Address kVftableRva = signatures::vft::kNetworkInitMultiPlayState;
     // hw::network::StateMachine<Network::InitMultiPlayState> with N=2 states.
 };
 

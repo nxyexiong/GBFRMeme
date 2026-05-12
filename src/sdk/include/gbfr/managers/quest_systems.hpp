@@ -17,6 +17,7 @@
 #pragma once
 
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::managers::quest {
 
@@ -30,7 +31,7 @@ class ProgressManager : public GameObject {
 public:
     using GameObject::GameObject;
     static constexpr std::string_view kSingletonName = "stage::quest::ProgressManager";
-    static constexpr Address kVftableRva = 0x1447fc698ULL;
+    static constexpr Address kVftableRva = signatures::vft::kProgressManager;
 };
 
 class QuestManagerBase : public GameObject {
@@ -41,43 +42,43 @@ public:
 class MainQuestManager : public QuestManagerBase {
 public:
     using QuestManagerBase::QuestManagerBase;
-    static constexpr Address kVftableRva = 0x145153cd8ULL;
+    static constexpr Address kVftableRva = signatures::vft::kMainQuestManager;
 };
 
 class MultiQuestManager : public QuestManagerBase {
 public:
     using QuestManagerBase::QuestManagerBase;
-    static constexpr Address kVftableRva = 0x145153d58ULL;
+    static constexpr Address kVftableRva = signatures::vft::kMultiQuestManager;
 };
 
 class FateEpisodeManager : public QuestManagerBase {
 public:
     using QuestManagerBase::QuestManagerBase;
-    static constexpr Address kVftableRva = 0x145153d98ULL;
+    static constexpr Address kVftableRva = signatures::vft::kFateEpisodeManager;
 };
 
 class BaseTownQuestManager : public QuestManagerBase {
 public:
     using QuestManagerBase::QuestManagerBase;
-    static constexpr Address kVftableRva = 0x145153dd8ULL;
+    static constexpr Address kVftableRva = signatures::vft::kBaseTownQuestManager;
 };
 
 class TrialBattleManager : public QuestManagerBase {
 public:
     using QuestManagerBase::QuestManagerBase;
-    static constexpr Address kVftableRva = 0x145153e18ULL;
+    static constexpr Address kVftableRva = signatures::vft::kTrialBattleManager;
 };
 
 class ChallengeMissionManager : public QuestManagerBase {
 public:
     using QuestManagerBase::QuestManagerBase;
-    static constexpr Address kVftableRva = 0x145153e58ULL;
+    static constexpr Address kVftableRva = signatures::vft::kChallengeMissionManager;
 };
 
 class ShortStoryQuestManager : public QuestManagerBase {
 public:
     using QuestManagerBase::QuestManagerBase;
-    static constexpr Address kVftableRva = 0x145153e98ULL;
+    static constexpr Address kVftableRva = signatures::vft::kShortStoryQuestManager;
 };
 
 } // namespace gbfr::managers::quest

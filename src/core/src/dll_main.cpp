@@ -15,7 +15,7 @@ BOOL WINAPI DllMain(HINSTANCE /*inst*/, DWORD reason, LPVOID /*reserved*/) {
         case DLL_PROCESS_ATTACH:
             // Best-effort auto-attach. Ignore failure (e.g. when the DLL is
             // loaded into a process other than the game during testing).
-            (void)gbfr_init(GBFR_ATTACH_INTERNAL, nullptr);
+            (void)gbfr_init(GBFR_ATTACH_INTERNAL, nullptr, GBFR_INIT_NONE);
             break;
         case DLL_PROCESS_DETACH:
             gbfr_shutdown();

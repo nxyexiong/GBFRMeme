@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <optional>
+#include <unordered_map>
 
 namespace gbfr::core {
 
@@ -34,6 +35,12 @@ public:
     [[nodiscard]] gbfr::Game&       game()        noexcept       { return *m_game; }
     [[nodiscard]] const gbfr::Game& game()        const noexcept { return *m_game; }
 
+    // OS process handle compatible with VirtualQueryEx / ReadProcessMemory.
+    // For an in-process attach this is the current-process pseudo handle
+    // (which works as a HANDLE for those APIs). For external attach this
+    // is the OpenProcess result owned by `ExternalMemory`.
+    [[nodiscard]] void* process_handle() const noexcept;
+
     // Attempt to populate singleton instance addresses by scanning for the
     // `lea` references to each manager's class-name string in `.rdata`
     // (which is how `cyan::Singleton<T>::registerInstance` looks up the
@@ -44,12 +51,47 @@ public:
     // an absolute address in the live process.
     [[nodiscard]] Address rva(Address rva_value) const noexcept;
 
+    // Live address of the parent save-data aggregate. Discovered on first
+    // call by scanning for one known list vftable and subtracting the
+    // verified offset; cached thereafter. Returns 0 if not found.
+    [[nodiscard]] Address save_aggregate_address();
+
+    // Offset of the `PlayerStats` struct relative to a player Entity. Found
+    // via signature scan (matches the gbfr-logs technique: a comparison
+    // against the empty-string hash 0x887AE0B0 followed by `LEA rcx,
+    // [rsi+OFFSET]`). Returns 0 if the pattern is not present.
+    [[nodiscard]] std::uint32_t player_data_offset();
+
+    // Scan the process for any live player Entity by looking for any of the
+    // 26 known per-character vftables. First call walks the address space
+    // (~80s); subsequent calls return the cached address. Returns the live
+    // Entity pointer or 0 if no player is currently spawned.
+    [[nodiscard]] Address find_local_player();
+
+    // Locate a live `sys::data::*List` instance by scanning for its vftable
+    // pointer. Cached on success (the lists are heap-allocated but stable
+    // for the lifetime of the process). Returns 0 if not found.
+    [[nodiscard]] Address find_save_list(Address vftable_rva);
+
+    // Locate the active save slot's "user block" (rupies, mastery points,
+    // player name, etc.). Discovered by scanning every `SaveDataUnit<int,1>`
+    // instance and finding the unique pair whose `src_ptr` values differ by
+    // exactly `signatures::offset::user_save_block::kMasteryPointsU32`
+    // (0x68). First call walks the process (~80s); subsequent calls return
+    // the cached base. Returns 0 if not found.
+    [[nodiscard]] Address find_user_save_block();
+
 private:
     Session(ModuleInfo info, std::unique_ptr<gbfr::IMemory> mem) noexcept;
 
     ModuleInfo                     m_module;
     std::unique_ptr<gbfr::IMemory> m_memory;
     std::unique_ptr<gbfr::Game>    m_game;
+    Address                        m_save_aggregate{0};
+    std::uint32_t                  m_player_data_offset{0};
+    Address                        m_local_player{0};
+    Address                        m_user_save_block{0};
+    std::unordered_map<Address, Address> m_list_cache;
 };
 
 } // namespace gbfr::core

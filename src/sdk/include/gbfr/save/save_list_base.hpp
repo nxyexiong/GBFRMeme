@@ -4,36 +4,30 @@
 // Mirrors:
 //   table::SaveListBase<TData, KeyType, MaxCount>
 //   table::SaveTempListBase<TData, KeyType, MaxCount, ChunkCount>
-//   table::HashList<TData, MaxCount>
-//   table::UniqueList<TData, MaxCount, ChunkCount>
 //
-// All have a vftable at offset 0; the in-memory layout of the table itself
-// (key array + value array + occupancy bitset + live count) is not yet
-// recovered — see GBFR_TODO_OFFSET below.
+// Layout (verified for CharaList):
+//   +0x00       vftable pointer
+//   +0x10       entries array of MaxCount * EntryStride bytes
+//
+// Each entry has a per-row header before the user-visible fields. Per
+// `signatures::offset::chara_data`:
+//   entry + 0x00  unknown
+//   entry + 0x08  liveness sentinel (qword == 0xFFFFFFFFFFFFFFFF when empty)
+//   entry + 0x10  Key (e.g. string_hash32 of character id)
+//   entry + 0x18  ... TData fields
+//
+// `EntryStride` defaults to `sizeof(TData)` but lists with a verified size
+// (e.g. CharaList = 0x3120) override it.
 #pragma once
 
 #include "../common.hpp"
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::save {
 
-namespace detail {
-template <class Key>
-inline Key key_from_index(std::size_t i) {
-    return static_cast<Key>(i);
-}
-template <>
-inline StringHash32 key_from_index<StringHash32>(std::size_t i) {
-    return StringHash32(static_cast<std::uint32_t>(i));
-}
-} // namespace detail
-
-// `table::SaveListBase<TData, Key, MaxCount>` — fixed-capacity hash map of
-// MaxCount slots keyed by `Key` (either `StringHash32` or `std::uint32_t`).
-//
-// TData is read by value, so it must be trivially copyable. The TData
-// structs themselves still need their field offsets reverse-engineered.
-template <class TData, class Key, std::size_t MaxCount>
+template <class TData, class Key, std::size_t MaxCount,
+          std::size_t EntryStride = sizeof(TData)>
 class SaveListBase : public GameObject {
 public:
     using GameObject::GameObject;
@@ -41,40 +35,57 @@ public:
     using value_type = TData;
     using key_type   = Key;
 
-    static constexpr std::size_t kMaxCount = MaxCount;
+    static constexpr std::size_t kMaxCount    = MaxCount;
+    static constexpr std::size_t kEntryStride = EntryStride;
 
-    static constexpr std::ptrdiff_t kKeyArrayOffset =
-        GBFR_TODO_OFFSET("SaveListBase: offset of key array");
-    static constexpr std::ptrdiff_t kValueArrayOffset =
-        GBFR_TODO_OFFSET("SaveListBase: offset of value array");
-    static constexpr std::ptrdiff_t kLiveCountOffset =
-        GBFR_TODO_OFFSET("SaveListBase: offset of live entry count");
+    static constexpr std::ptrdiff_t kEntriesArrayOffset =
+        signatures::offset::save_list_base::kEntriesArray;
 
-    [[nodiscard]] std::uint32_t live_count() const {
-        return read<std::uint32_t>(kLiveCountOffset);
+    static constexpr std::uint64_t kEmptyQword = 0xFFFFFFFFFFFFFFFFull;
+
+    // Absolute address of slot `i`'s entry.
+    [[nodiscard]] Address entry_address(std::size_t i) const {
+        return address() + static_cast<Address>(
+            kEntriesArrayOffset + i * kEntryStride);
     }
 
-    // Read the `i`-th slot's key (irrespective of whether the slot is in use).
+    // True if slot `i` holds a real entry. The engine fills empty slots'
+    // liveness qword (entry+0x08) with `0xFFFFFFFFFFFFFFFF`.
+    [[nodiscard]] bool is_live(std::size_t i) const {
+        return Memory::read<std::uint64_t>(memory(),
+            entry_address(i) +
+            static_cast<Address>(signatures::offset::chara_data::kLivenessQword))
+            != kEmptyQword;
+    }
+
+    // Read slot `i`'s key.
     [[nodiscard]] Key key_at(std::size_t i) const {
-        return read<Key>(kKeyArrayOffset + static_cast<std::ptrdiff_t>(i * sizeof(Key)));
+        return Memory::read<Key>(memory(),
+            entry_address(i) +
+            static_cast<Address>(signatures::offset::chara_data::kKey));
     }
 
-    // Read the `i`-th slot's value.
-    [[nodiscard]] TData value_at(std::size_t i) const {
-        return read<TData>(kValueArrayOffset + static_cast<std::ptrdiff_t>(i * sizeof(TData)));
+    // Read a typed field at `offset` inside slot `i`'s entry.
+    template <class T>
+    [[nodiscard]] T field_at(std::size_t i, std::ptrdiff_t offset) const {
+        return Memory::read<T>(memory(),
+            entry_address(i) + static_cast<Address>(offset));
     }
 
-    // Address of the `i`-th value (for in-place mutation / pointer hand-off).
-    [[nodiscard]] Address value_address(std::size_t i) const {
-        return address() + static_cast<Address>(kValueArrayOffset + i * sizeof(TData));
+    // Count live entries.
+    [[nodiscard]] std::uint32_t live_count() const {
+        std::uint32_t n = 0;
+        for (std::size_t i = 0; i < kMaxCount; ++i) {
+            if (is_live(i)) ++n;
+        }
+        return n;
     }
 };
 
 // `table::SaveTempListBase<TData, Key, MaxCount, ChunkCount>` — used by
 // `sys::data::GemList` (Cap 5100, Chunk 999) and
-// `sys::data::ItemPendulumList` (Cap 5000, Chunk 5000). Storage is split
-// into multiple chunks (probably for chunked allocation / freelist
-// management); chunks themselves are pointer-indirect.
+// `sys::data::ItemPendulumList` (Cap 5000, Chunk 5000). Internal storage is
+// chunked; not yet reverse-engineered.
 template <class TData, class Key, std::size_t MaxCount, std::size_t ChunkCount>
 class SaveTempListBase : public GameObject {
 public:
@@ -85,15 +96,6 @@ public:
 
     static constexpr std::size_t kMaxCount   = MaxCount;
     static constexpr std::size_t kChunkCount = ChunkCount;
-
-    static constexpr std::ptrdiff_t kChunkTableOffset =
-        GBFR_TODO_OFFSET("SaveTempListBase: chunk pointer table offset");
-    static constexpr std::ptrdiff_t kLiveCountOffset =
-        GBFR_TODO_OFFSET("SaveTempListBase: live count offset");
-
-    [[nodiscard]] std::uint32_t live_count() const {
-        return read<std::uint32_t>(kLiveCountOffset);
-    }
 };
 
 } // namespace gbfr::save

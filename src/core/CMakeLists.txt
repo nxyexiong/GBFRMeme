@@ -5,6 +5,7 @@ add_library(gbfr_core SHARED
     src/signatures.cpp
     src/session.cpp
     src/ui_runtime.cpp
+    src/debug.cpp
     src/c_api.cpp
     src/dll_main.cpp
 )

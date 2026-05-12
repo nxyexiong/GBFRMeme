@@ -7,6 +7,7 @@
 #pragma once
 
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::managers {
 
@@ -14,7 +15,7 @@ class PhotoManager : public GameObject {
 public:
     using GameObject::GameObject;
     static constexpr std::string_view kSingletonName = "PhotoManager";
-    static constexpr Address kVftableRva = 0x145161d78ULL;
+    static constexpr Address kVftableRva = signatures::vft::kPhotoManager;
 };
 
 class PhotoManagerSteam : public PhotoManager {

@@ -13,6 +13,7 @@
 add_executable(gbfr_app
     src/main.cpp
     src/inject.cpp
+    src/cli_debug.cpp
 )
 set_target_properties(gbfr_app PROPERTIES
     OUTPUT_NAME "GBFRMeme"

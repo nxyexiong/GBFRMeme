@@ -52,8 +52,8 @@ void UiRuntime::start(GbfrAttachMode mode) {
     if (m_impl->thread.joinable()) return;
 
     gbfr::ui::HostOptions opts;
-    opts.width        = 960;
-    opts.height       = 640;
+    opts.width        = 1024;
+    opts.height       = 768;
     opts.topmost      = false;
     opts.start_hidden = false;
     opts.hotkey_vk    = 0;

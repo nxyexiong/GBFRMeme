@@ -16,6 +16,7 @@
 #pragma once
 
 #include "object.hpp"
+#include "signatures.hpp"
 
 namespace gbfr {
 
@@ -23,20 +24,20 @@ class MainLoop : public GameObject {
 public:
     using GameObject::GameObject;
 
-    static constexpr Address kVftableRva = 0x145153748ULL;
+    static constexpr Address kVftableRva = signatures::vft::kMainLoop;
 };
 
 class AppMainLoop : public MainLoop {
 public:
     using MainLoop::MainLoop;
 
-    static constexpr Address kVftableRva    = 0x145153708ULL;
-    static constexpr Address kBootFuncRva   = 0x140079040ULL;
-    static constexpr Address kTickFuncRva   = 0x14007f460ULL;
-    static constexpr Address kShutdownFuncRva = 0x140148360ULL;
+    static constexpr Address kVftableRva     = signatures::vft::kAppMainLoop;
+    static constexpr Address kBootFuncRva    = signatures::func::kAppMainLoopBoot;
+    static constexpr Address kTickFuncRva    = signatures::func::kAppMainLoopTick;
+    static constexpr Address kShutdownFuncRva = signatures::func::kAppMainLoopShutdown;
 
     // Address of the constructor that installs the vftable (FUN_140194430).
-    static constexpr Address kConstructorRva = 0x140194430ULL;
+    static constexpr Address kConstructorRva = signatures::func::kAppMainLoopCtor;
 };
 
 } // namespace gbfr

@@ -11,6 +11,7 @@
 #pragma once
 
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::managers {
 
@@ -19,7 +20,7 @@ public:
     using GameObject::GameObject;
 
     static constexpr std::string_view kSingletonName = "ItemManager";
-    static constexpr Address kNameStringRva = 0x1451b1c29ULL;
+    static constexpr Address kNameStringRva = signatures::name_string::kItemManager;
 
     enum class AppearFrom : std::uint32_t {
         // Exact enumerators not yet recovered.

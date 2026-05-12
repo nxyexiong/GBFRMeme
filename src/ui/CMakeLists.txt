@@ -42,6 +42,13 @@ add_library(gbfr_ui STATIC
     src/ui.cpp
 )
 target_include_directories(gbfr_ui PUBLIC include)
+# The UI calls gbfr_core's public C ABI to read/write live game state. We
+# only need the headers here — the symbols resolve when `gbfr_ui` is linked
+# into the `gbfr_core` DLL, so we avoid a circular CMake dependency by
+# pulling in just the include directory.
+target_include_directories(gbfr_ui PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/core/include"
+)
 target_compile_features(gbfr_ui PUBLIC cxx_std_20)
 target_link_libraries(gbfr_ui PUBLIC imgui)
 set_target_properties(gbfr_ui PROPERTIES POSITION_INDEPENDENT_CODE ON)

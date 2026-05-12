@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::managers {
 
@@ -31,10 +32,10 @@ public:
     using GameObject::GameObject;
 
     static constexpr std::string_view kSingletonName = "CharacterManager";
-    static constexpr Address kNameStringRva = 0x1451b1b2aULL;
+    static constexpr Address kNameStringRva = signatures::name_string::kCharacterManager;
 
     // Number of party slots — confirmed by the 4-element `array<...>` in RTTI.
-    static constexpr std::size_t kPartySize = 4;
+    static constexpr std::size_t kPartySize = signatures::count::kPartySize;
 
     enum class MultiCharaDataCacheType : std::uint32_t {
         // Exact enumerator values not yet recovered.

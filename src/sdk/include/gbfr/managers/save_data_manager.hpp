@@ -14,19 +14,20 @@
 #pragma once
 
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::managers {
 
 class SaveDataInitModule : public GameObject {
 public:
     using GameObject::GameObject;
-    static constexpr Address kVftableRva = 0x145153780ULL; // see vft_SaveDataInitModule.txt
+    static constexpr Address kVftableRva = signatures::vft::kSaveDataInitModule;
 };
 
 class SaveDataReadModule : public GameObject {
 public:
     using GameObject::GameObject;
-    static constexpr Address kVftableRva = 0x1451537c0ULL; // see vft_SaveDataReadModule.txt
+    static constexpr Address kVftableRva = signatures::vft::kSaveDataReadModule;
 
     static constexpr Address kTaskRequestDeserializeSlotDataRva = 0; // TODO: address of task lambda
 };
@@ -34,19 +35,19 @@ public:
 class SaveDataWriteModule : public GameObject {
 public:
     using GameObject::GameObject;
-    static constexpr Address kVftableRva = 0x1451537a0ULL; // see vft_SaveDataWriteModule.txt
+    static constexpr Address kVftableRva = signatures::vft::kSaveDataWriteModule;
 
     // Each task is a `std::_Func_impl_no_alloc<lambda, void>`. Vftable RVAs:
-    static constexpr Address kTaskRequestBuildCommonDataRva         = 0x144820ff8ULL;
-    static constexpr Address kTaskRequestBuildGraphicsSettingDataRva = 0x1448210b8ULL;
-    static constexpr Address kTaskEntryWriteSlotDataRva             = 0x144821158ULL;
-    static constexpr Address kTaskEntryWriteSlotInfoRva             = 0x1448211f8ULL;
+    static constexpr Address kTaskRequestBuildCommonDataRva          = signatures::vft::kTaskRequestBuildCommonData;
+    static constexpr Address kTaskRequestBuildGraphicsSettingDataRva = signatures::vft::kTaskRequestBuildGraphicsSettingData;
+    static constexpr Address kTaskEntryWriteSlotDataRva              = signatures::vft::kTaskEntryWriteSlotData;
+    static constexpr Address kTaskEntryWriteSlotInfoRva              = signatures::vft::kTaskEntryWriteSlotInfo;
 };
 
 class SaveDataDeleteModule : public GameObject {
 public:
     using GameObject::GameObject;
-    static constexpr Address kVftableRva = 0x1451537e0ULL; // see vft_SaveDataDeleteModule.txt
+    static constexpr Address kVftableRva = signatures::vft::kSaveDataDeleteModule;
 };
 
 // The orchestrator: no vftable, dispatches via a `unordered_map<string_hash32,

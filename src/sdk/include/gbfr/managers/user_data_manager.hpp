@@ -8,6 +8,7 @@
 #pragma once
 
 #include "../object.hpp"
+#include "../signatures.hpp"
 
 namespace gbfr::managers {
 
@@ -16,7 +17,7 @@ public:
     using GameObject::GameObject;
 
     static constexpr std::string_view kSingletonName = "UserDataManager";
-    static constexpr Address kNameStringRva = 0x1451b1d7aULL;
+    static constexpr Address kNameStringRva = signatures::name_string::kUserDataManager;
 };
 
 } // namespace gbfr::managers

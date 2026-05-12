@@ -143,7 +143,8 @@ bool Host::Impl::create_window() {
     wc_atom = RegisterClassExW(&wc);
     if (!wc_atom) return false;
 
-    DWORD style    = WS_OVERLAPPEDWINDOW;
+    // Fixed-size window: drop WS_THICKFRAME (resize border) and WS_MAXIMIZEBOX.
+    DWORD style    = (WS_OVERLAPPEDWINDOW & ~(WS_THICKFRAME | WS_MAXIMIZEBOX));
     DWORD ex_style = 0;
     if (opts.topmost) ex_style |= WS_EX_TOPMOST;
 

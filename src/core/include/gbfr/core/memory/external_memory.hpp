@@ -40,6 +40,7 @@ public:
 
     [[nodiscard]] std::uint32_t pid() const noexcept { return m_pid; }
     [[nodiscard]] std::size_t   module_size() const noexcept { return m_module_size; }
+    [[nodiscard]] void*         native_handle() const noexcept { return m_handle; }
 
 private:
     ExternalMemory(std::uint32_t pid, void* handle,
