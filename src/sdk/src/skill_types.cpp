@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Generated from Nenkai's modding docs.
+// Generated from villith/relink-logs English game-data catalogs at c1b5a32d6671ff4d710bfe2a228a70c20351311f.
+// Legacy-only hashes are retained for compatibility.
 
 #include "gbfr/skill_types.hpp"
 
@@ -9,7 +10,7 @@ namespace gbfr {
 
 namespace {
 
-constexpr SkillEntry kSkillsUnsorted[] = {
+constexpr SkillEntry kSkills[] = {
     {0x50079A1C, "SKILL_000_00", "ATK"},
     {0xF372F096, "SKILL_001_00", "HP"},
     {0x7279E478, "SKILL_002_00", "(Unused) DEF"},
@@ -124,9 +125,9 @@ constexpr SkillEntry kSkillsUnsorted[] = {
     {0x84078CB0, "SKILL_111_00", "Quick Charge"},
     {0xD0A1C6E5, "SKILL_112_00", "(Unused)"},
     {0x57E8A93F, "SKILL_113_00", "Sigil Booster"},
-
     {0xCD030268, "SKILL_114_00", "Fearless Drive"},
     {0xA38510E2, "SKILL_114_01", "Fearless Spirit"},
+    {0xDADE14DC, "SKILL_114_02", "Fearless Heart"},
     {0x3BFED918, "SKILL_115_00", "Guardian's Conviction"},
     {0xF8496336, "SKILL_115_01", "Guardian's Honor"},
     {0x9AFDFA9E, "SKILL_115_02", "Guardian's Warpath"},
@@ -180,18 +181,20 @@ constexpr SkillEntry kSkillsUnsorted[] = {
     {0x4F135217, "SKILL_131_02", "Crimson's Warpath"},
     {0x7440E869, "SKILL_132_00", "Ebony's Presence"},
     {0xCD124165, "SKILL_132_01", "Ebony's Poise"},
-
+    {0xD7F9BB88, "SKILL_132_02", "Ebony's Warpath"},
     {0x0FBA47E8, "SKILL_133_00", "Fortifying Vigor (JP HP+/Rec)"},
     {0xA4D6B880, "SKILL_134_00", "Instilling Vigor (JP EXP)"},
     {0xCDEB73F6, "SKILL_135_00", "Gilding Vigor (JP Rupies+)"},
     {0x1DC9D7E7, "SKILL_136_00", "Held Under Resistance"},
     {0xDD4A701E, "SKILL_137_00", "Darkflame Resistance"},
-    {0x4BF2E191, "SKILL_138_00", "ATK Down Resistance"},
-    {0x66DE60B1, "SKILL_139_00", "DEF Down Resistance"},
+    {0x4BF2E191, "SKILL_138_00", "ATK↓ Resistance"},
+    {0x66DE60B1, "SKILL_139_00", "DEF↓ Resistance"},
     {0x082033CB, "SKILL_140_00", "Crabby Resonance"},
-    {0xD461ECFB, "SKILL_141_00", "Crabvestment Returns"},
+    {0x1B0D9897, "SKILL_141_00", "Crabvestment Returns"},
+    {0xD461ECFB, "SKILL_141_04", "Crabvestment Returns"},
     {0x9AD8B5E6, "SKILL_142_00", "Seven Net"},
     {0x40223C28, "SKILL_143_00", "Catastrophe"},
+    {0x1E1CECCE, "SKILL_143_10", "Catastrophe Nova"},
     {0x74AA75D6, "SKILL_144_00", "Stronghold"},
     {0xDC225C96, "SKILL_145_00", "Power Hungry"},
     {0x4C588C27, "SKILL_146_00", "War Elemental"},
@@ -211,7 +214,6 @@ constexpr SkillEntry kSkillsUnsorted[] = {
     {0xD3B8C21F, "SKILL_164_00", "Crabmiration"},
     {0x48A95B8D, "SKILL_166_00", "Greater Aegis"},
     {0xF71F8997, "SKILL_167_00", "Auto Potion"},
-
     {0x77C809F5, "SKILL_170_00", "Spirit Edge's Rally"},
     {0x9230E3F5, "SKILL_170_01", "Spirit Edge's Fury"},
     {0x7B4FC47A, "SKILL_170_02", "Spirit Edge's Warpath"},
@@ -224,43 +226,103 @@ constexpr SkillEntry kSkillsUnsorted[] = {
     {0x15806DFC, "SKILL_172_01", "Supreme Primarch's Nimbus"},
     {0x4E5F6706, "SKILL_172_02", "Supreme Primarch's Warpath"},
     {0x1A2EF59E, "SKILL_172_03", "Ain"},
-
+    {0x1DE14C65, "SKILL_173_00", "Gladiator's Frenzy"},
+    {0x26956F25, "SKILL_173_01", "Gladiator's Top"},
+    {0xDBA19768, "SKILL_173_02", "Gladiator's Warpath"},
+    {0x7B5B081D, "SKILL_174_00", "Bladequeen's Serenade"},
+    {0x9ACE140B, "SKILL_174_01", "Bladequeen's Circuit"},
+    {0x79266456, "SKILL_174_02", "Bladequeen's Warpath"},
+    {0xD176D262, "SKILL_175_00", "Ultramarine's Flash"},
+    {0x461A8E07, "SKILL_175_01", "Ultramarine's Adversity"},
+    {0xB953CC1E, "SKILL_175_02", "Ultramarine's Warpath"},
+    {0x7D75D904, "SKILL_176_00", "Thunderwolf's Recharge"},
+    {0xBE3404B9, "SKILL_176_01", "Thunderwolf's Acuity"},
+    {0x3EB345D7, "SKILL_176_02", "Thunderwolf's Warpath"},
+    {0x47384248, "SKILL_177_00", "Enchantress's Blessing"},
+    {0x30773197, "SKILL_177_01", "Enchantress's Rhythm"},
+    {0x807B6684, "SKILL_177_02", "Enchantress's Warpath"},
+    {0x06719232, "SKILL_178_00", "The Black's Mark"},
+    {0xED8D8AD8, "SKILL_178_01", "The Black's Impulse"},
+    {0x5559232F, "SKILL_178_02", "The Black's Warpath"},
     {0xD3047326, "SKILL_230_00", "(Unused MaxATK Cap)"},
     {0xED3A49A1, "SKILL_231_00", "(Unused MaxHP Cap)"},
     {0x259F189B, "SKILL_232_00", "(Unused Link Time)"},
     {0xEE85CD1F, "SKILL_233_00", "Berserker Echo"},
     {0x3D8153A1, "SKILL_234_00", "Spartan Echo"},
     {0x51C115D2, "SKILL_235_00", "Super Ultimate Perfect Dodge"},
+    {0xBF78FBFC, "SKILL_301_00", "Immortal Shell"},
+    {0x46EE3116, "SKILL_302_00", "In a Pinch"},
+    {0x89C66ACB, "SKILL_303_00", "Sumo Force"},
+    {0x3B71AF12, "SKILL_311_00", "DMG Cap Ecru"},
+    {0xFFF8CF64, "SKILL_312_00", "DMG Cap Sage"},
+    {0x235D86EF, "SKILL_313_00", "Supernova"},
+    {0xAEFEB1BC, "SKILL_314_00", "DMG Cap Cobalt"},
+    {0x0151CF9E, "SKILL_315_00", "DMG Cap Cardinal"},
+    {0xBBD77C33, "SKILL_316_00", "Unbound Strike"},
+    {0x020DB733, "SKILL_317_00", "Unbound Technique"},
+    {0x3F682593, "SKILL_318_00", "Unbound Exertion"},
+    {0x79027FC8, "SKILL_319_00", "Unbound Master"},
+    {0x0DE887A0, "SKILL_320_00", "Celestial Nyx"},
+    {0xA7726190, "SKILL_321_00", "Celestial Lumen"},
+    {0x9232DC17, "SKILL_322_00", "Celestial Terra"},
+    {0x36E3848D, "SKILL_323_00", "Celestial Incendo"},
+    {0xA898E283, "SKILL_324_00", "Celestial Aqua"},
+    {0xD029FE08, "SKILL_325_00", "Fatebreaker"},
+    {0x73220725, "SKILL_326_00", "Celestial Ventus"},
+    {0xF26BAEA5, "SKILL_327_00", "Divergence"},
 };
 
-constexpr std::size_t kSkillsCount = sizeof(kSkillsUnsorted) / sizeof(kSkillsUnsorted[0]);
+constexpr bool skill_hashes_are_valid() {
+    for (const auto& entry : kSkills) {
+        if (StringHash32(entry.asset_id).value() != entry.hash) return false;
+    }
+    return true;
+}
+
+static_assert(skill_hashes_are_valid(), "skill catalog hash mismatch");
 
 } // namespace
 
 const SkillEntry* find_skill(std::uint32_t hash) noexcept {
-    for (std::size_t i = 0; i < kSkillsCount; ++i) {
-        if (kSkillsUnsorted[i].hash == hash) return &kSkillsUnsorted[i];
+    for (const auto& entry : kSkills) {
+        if (entry.hash == hash) return &entry;
     }
     return nullptr;
 }
 
-const SkillEntry* find_skill_by_name(std::string_view name) noexcept {
-    if (name.empty()) return nullptr;
-    auto ieq = [](char a, char b) {
-        const auto la = static_cast<char>(std::tolower(static_cast<unsigned char>(a)));
-        const auto lb = static_cast<char>(std::tolower(static_cast<unsigned char>(b)));
-        return la == lb;
-    };
-    for (std::size_t i = 0; i < kSkillsCount; ++i) {
-        const auto& s = kSkillsUnsorted[i].name;
-        if (s.size() != name.size()) continue;
-        bool eq = true;
-        for (std::size_t j = 0; j < s.size(); ++j) {
-            if (!ieq(s[j], name[j])) { eq = false; break; }
-        }
-        if (eq) return &kSkillsUnsorted[i];
+bool ascii_iequals(std::string_view left, std::string_view right) {
+    if (left.size() != right.size()) return false;
+    for (std::size_t i = 0; i < left.size(); ++i) {
+        const auto lower_a = static_cast<char>(
+            std::tolower(static_cast<unsigned char>(left[i])));
+        const auto lower_b = static_cast<char>(
+            std::tolower(static_cast<unsigned char>(right[i])));
+        if (lower_a != lower_b) return false;
     }
-    return nullptr;
+    return true;
+}
+
+const SkillEntry* find_skill_by_name(
+    std::string_view value, std::uint32_t preferred_hash) noexcept {
+    if (value.empty()) return nullptr;
+
+    for (const auto& entry : kSkills) {
+        if (ascii_iequals(entry.asset_id, value)) return &entry;
+    }
+
+    const SkillEntry* match = nullptr;
+    bool ambiguous = false;
+    for (const auto& entry : kSkills) {
+        if (!ascii_iequals(entry.name, value)) continue;
+        if (entry.hash == preferred_hash) return &entry;
+        if (match == nullptr) match = &entry;
+        else ambiguous = true;
+    }
+    return ambiguous ? nullptr : match;
+}
+
+const SkillEntry* find_skill_by_name(std::string_view value) noexcept {
+    return find_skill_by_name(value, 0);
 }
 
 } // namespace gbfr

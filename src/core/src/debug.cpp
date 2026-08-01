@@ -211,6 +211,67 @@ std::vector<Address> scan_qword_in_process(const Session& s, std::uint64_t value
     return out;
 }
 
+Address scan_any_qword_in_process(const Session& s,
+                                  std::span<const std::uint64_t> values) {
+    if (values.empty()) return 0;
+
+    std::vector<std::uint64_t> sorted(values.begin(), values.end());
+    std::sort(sorted.begin(), sorted.end());
+    sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
+
+    HANDLE proc = static_cast<HANDLE>(s.process_handle());
+    if (!proc) return 0;
+
+    constexpr std::uint64_t kAddrMax = 0x7FFFFFFFFFFFULL;
+    constexpr std::size_t   kChunk   = 1 << 20;
+    std::vector<std::uint8_t> buf;
+
+    std::uint64_t cursor = 0;
+    while (cursor < kAddrMax) {
+        MEMORY_BASIC_INFORMATION mbi{};
+        if (VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(cursor),
+                           &mbi, sizeof(mbi)) == 0) {
+            break;
+        }
+        const auto region_base = reinterpret_cast<std::uint64_t>(mbi.BaseAddress);
+        const auto region_size = static_cast<std::uint64_t>(mbi.RegionSize);
+        const std::uint64_t next = region_base + region_size;
+
+        const bool readable =
+            mbi.State == MEM_COMMIT &&
+            (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) == 0 &&
+            (mbi.Protect & (PAGE_READONLY | PAGE_READWRITE
+                          | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE
+                          | PAGE_WRITECOPY    | PAGE_EXECUTE_WRITECOPY)) != 0;
+
+        if (readable) {
+            std::uint64_t off = 0;
+            while (off < region_size) {
+                const std::size_t want = static_cast<std::size_t>(
+                    std::min<std::uint64_t>(kChunk + 7, region_size - off));
+                if (buf.size() < want) buf.resize(want);
+                if (s.memory().read(static_cast<Address>(region_base + off),
+                                    buf.data(), want)) {
+                    const std::size_t limit = (want >= 8) ? (want - 7) : 0;
+                    for (std::size_t i = 0; i < limit; i += 8) {
+                        std::uint64_t v = 0;
+                        std::memcpy(&v, buf.data() + i, sizeof(v));
+                        if (std::binary_search(sorted.begin(), sorted.end(), v)) {
+                            return static_cast<Address>(region_base + off + i);
+                        }
+                    }
+                }
+                if (region_size - off <= kChunk) break;
+                off += kChunk;
+            }
+        }
+
+        if (next <= cursor) break;
+        cursor = next;
+    }
+    return 0;
+}
+
 std::vector<Address> scan_dword_in_process(const Session& s, std::uint32_t value,
                                            std::size_t max_results) {
     std::vector<Address> out;

@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 // gbfr/main_loop.hpp — `MainLoop` / `AppMainLoop`.
 //
-// Vftable RVAs from `vft_AppMainLoop.txt`:
-//   AppMainLoop::vftable @ 0x145153708
-//   MainLoop::vftable    @ 0x145153748
+// Vftable RVAs for Steam build 24245499:
+//   AppMainLoop::vftable @ 0x146135510
+//   MainLoop::vftable    @ 0x146135550
 //
 // AppMainLoop vftable slots:
-//   [0] 0x140198260 (38 B)     - scalar deleting dtor
-//   [1] 0x140079040 (13053 B)  - init / boot   (constructs SaveDataReadModule)
-//   [2] 0x14007f460 (328495 B) - per-frame tick (constructs the
-//                                 `sys::data::*` cluster on first run)
-//   [3] 0x140148360 (2697 B)   - shutdown / drain
-//   [4] 0x14007d530 (1 B)      - pure-virtual stub
-//   [5] 0x14007d530 (1 B)      - pure-virtual stub
+//   [0] 0x1401a7d50 - scalar deleting dtor
+//   [1] 0x140089600 - init / boot
+//   [2] 0x1400915a0 - per-frame tick
+//   [3] 0x14014cf00 - shutdown / drain
+//   [4] 0x1400894a0 - no-op pure-virtual stub
+//   [5] 0x1400894a0 - no-op pure-virtual stub
 #pragma once
 
 #include "object.hpp"
@@ -36,7 +35,7 @@ public:
     static constexpr Address kTickFuncRva    = signatures::func::kAppMainLoopTick;
     static constexpr Address kShutdownFuncRva = signatures::func::kAppMainLoopShutdown;
 
-    // Address of the constructor that installs the vftable (FUN_140194430).
+    // Address of the constructor that installs the vftable.
     static constexpr Address kConstructorRva = signatures::func::kAppMainLoopCtor;
 };
 

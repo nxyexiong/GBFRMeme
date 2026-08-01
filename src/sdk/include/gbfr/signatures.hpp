@@ -8,9 +8,14 @@
 //   * known function RVAs                       (signatures::func)
 //   * fixed array / list sizes                  (signatures::count)
 //   * empty-key / "no entry" sentinels          (signatures::sentinel)
-//   * IDA-style byte patterns                   (signatures::pattern)
 //   * static instance / pointer slot RVAs       (signatures::instance / ::ptr_slot)
 //   * verified field offsets                    (signatures::offset)
+//
+// Current target:
+//   Steam build ID: 24245499
+//   Executable SHA-256:
+//     1BBBEC61AAB7F75FE328CF6BFE0247EBDBCEC6C404CEC12C032B8FFA41D22102
+//   Executable timestamp: 2026-07-31
 //
 // All addresses are recovered against the design-time image base
 // `0x140000000` (Ghidra default load). Translate to a live address with
@@ -36,7 +41,7 @@
 // Ghidra headless scripting + the SDK's own debug CLI. The general loop:
 //
 // 1. Refresh the Ghidra project.
-//    * Open `reverse/20260510/` (or create a sibling folder for the new
+//    * Open `reverse/<build-date>/` (or create a sibling folder for the new
 //      build) and re-import `granblue_fantasy_relink.exe`. Let Ghidra run
 //      its analyzers to completion.
 //    * Re-run the dump scripts in `reverse/scripts/` to refresh the
@@ -52,7 +57,7 @@
 //
 //    (a) `signatures::vft::*`
 //        Search Ghidra symbols for `<Class>::vftable` and copy the address.
-//        The 26 character vftables live in `character_types.hpp`, not here.
+//        Character vftables live in `character_types.hpp`, not here.
 //        SaveListBase / SaveTempListBase derivatives (CharaList, ItemList,
 //        GemList, ItemPendulumList, ...) appear in a contiguous RVA cluster
 //        under the save aggregate ctor — easy to spot in classes.txt.
@@ -73,7 +78,7 @@
 //        Slot caps come from the IMUL instructions inside the list ctor
 //        (e.g. `IMUL R14, R12, 0x3120` for CharaList stride; the explicit
 //        upper bound comparison gives the count). For ItemList / GemList /
-//        ItemPendulumList look at FUN_14007f460 (AppMainLoop tick) and the
+//        ItemPendulumList look at the current AppMainLoop tick and the
 //        list-specific ctors it calls. The party size is fixed by the RTTI
 //        `array<..., 4>` template arg.
 //
@@ -83,16 +88,13 @@
 //        (in `common.hpp`) are unchanged. If the value differs, the engine
 //        rotated its hash seeds and `common.hpp` itself needs an update
 //        first (see the `.rdata` SIMD init vector recovery instructions
-//        in `reverse/20260510/docs/scene-and-save-structure.md`).
+//        in the matching `reverse/<build-date>/docs/` notes).
 //
-//    (f) `signatures::pattern::*`
-//        Open the function that LEAs the PlayerStats pointer (search for
-//        the prior site or rediscover via XREFs to `find_local_player`'s
-//        Entity vtable). Re-extract the surrounding 23 instruction bytes
-//        and update the IDA-style mask; verify by running the SDK CLI:
-//          `GBFRMeme.exe -c debug scan-pattern "<new pattern>"`
-//        It should match exactly once. Update `kPlayerDataOffsetDispPos`
-//        if the disp32 moved within the pattern.
+//    (f) `signatures::offset::player_entity::*`
+//        Game 2.0 moved PlayerStats behind a runtime property-table dispatch,
+//        so the old fixed instruction pattern no longer exists. Re-verify the
+//        direct Entity-relative offset against known level / HP / attack
+//        values after every game update.
 //
 //    (g) `signatures::instance::*` and `signatures::ptr_slot::*`
 //        Drive from `manager_static_instances.tsv` /
@@ -106,14 +108,14 @@
 //    (h) `signatures::offset::*`
 //        These are field-byte-offsets inside specific records. Strategies:
 //          * save_list_base / chara_data: re-read the per-entry loop in
-//            FUN_14007f460. Look for the liveness-sentinel check and the
+//            AppMainLoop tick. Look for the liveness-sentinel check and the
 //            key load.
 //          * save_aggregate: search XREFs to the per-list vftables and
 //            note the constant offsets that produce the list pointer.
 //          * save_data_unit: vftable layout is described in
 //            `IdentifyVftables.java` output for SaveDataUnit<int,1>.
 //          * user_save_block: see the "Currency / wallet" section of
-//            `reverse/20260510/docs/scene-and-save-structure.md`. Verify
+//            matching reverse-engineering notes. Verify
 //            live by reading the rupie / mastery values after the SDK's
 //            `find_user_save_block` scan: `GBFRMeme.exe -c currency`.
 //          * item_list / gem_list / item_pendulum_list: stride is
@@ -151,78 +153,78 @@ namespace gbfr::signatures {
 namespace vft {
 
 // ----- engine root ---------------------------------------------------------
-inline constexpr Address kMainLoop                   = 0x145153748ULL;
-inline constexpr Address kAppMainLoop                = 0x145153708ULL;
+inline constexpr Address kMainLoop                   = 0x146135550ULL;
+inline constexpr Address kAppMainLoop                = 0x146135510ULL;
 
 // ----- camera --------------------------------------------------------------
-inline constexpr Address kCameraBase                 = 0x14480b6d0ULL; // Fw::cCameraBase
-inline constexpr Address kCameraApp                  = 0x1447fdb88ULL;
-inline constexpr Address kCameraGame                 = 0x1447fda38ULL;
-inline constexpr Address kCameraBattleCutscene       = 0x1447fdef8ULL;
+inline constexpr Address kCameraBase                 = 0x1454cbd50ULL; // Fw::cCameraBase
+inline constexpr Address kCameraApp                  = 0x1454baca8ULL;
+inline constexpr Address kCameraGame                 = 0x1454bab58ULL;
+inline constexpr Address kCameraBattleCutscene       = 0x1454bb048ULL;
 
 // ----- managers ------------------------------------------------------------
-inline constexpr Address kNpcAppearanceManager       = 0x1447fe390ULL;
-inline constexpr Address kNetworkSystemRpcManager    = 0x1447fe5e0ULL;
-inline constexpr Address kNetworkInitNetworkState    = 0x1447fe778ULL;
-inline constexpr Address kNetworkInitMultiPlayState  = 0x1447fe9c8ULL;
-inline constexpr Address kPhotoManager               = 0x145161d78ULL;
+inline constexpr Address kNpcAppearanceManager       = 0x1454bb4e0ULL;
+inline constexpr Address kNetworkSystemRpcManager    = 0x1454bb8b8ULL;
+inline constexpr Address kNetworkInitNetworkState    = 0x1454bba68ULL;
+inline constexpr Address kNetworkInitMultiPlayState  = 0x1454bbcb8ULL;
+inline constexpr Address kPhotoManager               = 0x1461441f0ULL;
 
 // ----- save-data modules ---------------------------------------------------
-inline constexpr Address kSaveDataInitModule         = 0x145153780ULL;
-inline constexpr Address kSaveDataReadModule         = 0x1451537c0ULL;
-inline constexpr Address kSaveDataWriteModule        = 0x1451537a0ULL;
-inline constexpr Address kSaveDataDeleteModule       = 0x1451537e0ULL;
+inline constexpr Address kSaveDataInitModule         = 0x146135588ULL;
+inline constexpr Address kSaveDataReadModule         = 0x1461355c8ULL;
+inline constexpr Address kSaveDataWriteModule        = 0x1461355a8ULL;
+inline constexpr Address kSaveDataDeleteModule       = 0x1461355e8ULL;
 
 // SaveDataWriteModule task lambdas (`std::_Func_impl_no_alloc<lambda, void>`).
-inline constexpr Address kTaskRequestBuildCommonData         = 0x144820ff8ULL;
-inline constexpr Address kTaskRequestBuildGraphicsSettingData = 0x1448210b8ULL;
-inline constexpr Address kTaskEntryWriteSlotData             = 0x144821158ULL;
-inline constexpr Address kTaskEntryWriteSlotInfo             = 0x1448211f8ULL;
+inline constexpr Address kTaskRequestBuildCommonData          = 0x1454e1268ULL;
+inline constexpr Address kTaskRequestBuildGraphicsSettingData = 0x1454e1328ULL;
+inline constexpr Address kTaskEntryWriteSlotData              = 0x1454e13c8ULL;
+inline constexpr Address kTaskEntryWriteSlotInfo              = 0x1454e1468ULL;
 
 // ----- quest -------------------------------------------------------------
-inline constexpr Address kProgressManager            = 0x1447fc698ULL;
-inline constexpr Address kMainQuestManager           = 0x145153cd8ULL;
-inline constexpr Address kMultiQuestManager          = 0x145153d58ULL;
-inline constexpr Address kFateEpisodeManager         = 0x145153d98ULL;
-inline constexpr Address kBaseTownQuestManager       = 0x145153dd8ULL;
-inline constexpr Address kTrialBattleManager         = 0x145153e18ULL;
-inline constexpr Address kChallengeMissionManager    = 0x145153e58ULL;
-inline constexpr Address kShortStoryQuestManager     = 0x145153e98ULL;
+inline constexpr Address kProgressManager            = 0x1454b8da8ULL;
+inline constexpr Address kMainQuestManager           = 0x146139b70ULL;
+inline constexpr Address kMultiQuestManager          = 0x146139c70ULL;
+inline constexpr Address kFateEpisodeManager         = 0x146139cf0ULL;
+inline constexpr Address kBaseTownQuestManager       = 0x146139d70ULL;
+inline constexpr Address kTrialBattleManager         = 0x146139df0ULL;
+inline constexpr Address kChallengeMissionManager    = 0x146139e70ULL;
+inline constexpr Address kShortStoryQuestManager     = 0x146139ef0ULL;
 
 // ----- sys::data::*List (SaveListBase derivatives) ------------------------
-inline constexpr Address kScenarioList               = 0x1451538c8ULL;
-inline constexpr Address kFateEpList                 = 0x145153a40ULL;
-inline constexpr Address kIslandList                 = 0x145153a68ULL;
-inline constexpr Address kGachaList                  = 0x145153b10ULL;
-inline constexpr Address kArchiveList                = 0x145153b38ULL;
-inline constexpr Address kCollectiblesEmList         = 0x145153ba0ULL;
-inline constexpr Address kCollectiblesBaList         = 0x145153c08ULL;
-inline constexpr Address kCollectiblesChestList      = 0x145153c70ULL;
-inline constexpr Address kAbilityList                = 0x1451547b8ULL;
-inline constexpr Address kTradeList                  = 0x145154820ULL;
-inline constexpr Address kMainStoryList              = 0x1451548c8ULL;
-inline constexpr Address kBGMList                    = 0x145154930ULL;
-inline constexpr Address kPictureBookCharaList       = 0x145154998ULL;
-inline constexpr Address kPictureBookEnemyList       = 0x145154a00ULL;
-inline constexpr Address kPictureBookPendulumList    = 0x145154a68ULL;
-inline constexpr Address kTipsList                   = 0x145154ad0ULL;
-inline constexpr Address kInfomationQuestList        = 0x1451579a0ULL;
-inline constexpr Address kInfomationDialogList       = 0x145157a08ULL;
-inline constexpr Address kCharaList                  = 0x145159ef8ULL;
-inline constexpr Address kCharaPresetList            = 0x145159f60ULL;
-inline constexpr Address kWeaponIdSaveList           = 0x145159f88ULL;
-inline constexpr Address kGemIdSaveList              = 0x145159ff0ULL;
-inline constexpr Address kItemList                   = 0x14515a058ULL;
-inline constexpr Address kWordlistList               = 0x14515a180ULL;
-inline constexpr Address kMenuUnlockSaveData         = 0x14515a1a8ULL;
-inline constexpr Address kTutorialList               = 0x145161e38ULL;
-inline constexpr Address kMenuTutorialList           = 0x145161ea0ULL;
-inline constexpr Address kNpcVoiceList               = 0x145161f08ULL;
-inline constexpr Address kCommandComboList           = 0x145192fc8ULL;
+inline constexpr Address kScenarioList               = 0x1461356d0ULL;
+inline constexpr Address kFateEpList                 = 0x146135848ULL;
+inline constexpr Address kIslandList                 = 0x146135870ULL;
+inline constexpr Address kGachaList                  = 0x146135918ULL;
+inline constexpr Address kArchiveList                = 0x146135940ULL;
+inline constexpr Address kCollectiblesEmList         = 0x1461359a8ULL;
+inline constexpr Address kCollectiblesBaList         = 0x146135a10ULL;
+inline constexpr Address kCollectiblesChestList      = 0x146135a78ULL;
+inline constexpr Address kAbilityList                = 0x146136440ULL;
+inline constexpr Address kTradeList                  = 0x146136510ULL;
+inline constexpr Address kMainStoryList              = 0x1461365b8ULL;
+inline constexpr Address kBGMList                    = 0x146136620ULL;
+inline constexpr Address kPictureBookCharaList       = 0x146136688ULL;
+inline constexpr Address kPictureBookEnemyList       = 0x1461366f0ULL;
+inline constexpr Address kPictureBookPendulumList    = 0x146136758ULL;
+inline constexpr Address kTipsList                   = 0x1461367c0ULL;
+inline constexpr Address kInfomationQuestList        = 0x146139788ULL;
+inline constexpr Address kInfomationDialogList       = 0x1461397f0ULL;
+inline constexpr Address kCharaList                  = 0x146139b48ULL;
+inline constexpr Address kCharaPresetList            = 0x1461364e8ULL;
+inline constexpr Address kWeaponIdSaveList           = 0x14613a030ULL;
+inline constexpr Address kGemIdSaveList              = 0x14613a098ULL;
+inline constexpr Address kItemList                   = 0x14613a100ULL;
+inline constexpr Address kWordlistList               = 0x14613b348ULL;
+inline constexpr Address kMenuUnlockSaveData         = 0x14613b370ULL;
+inline constexpr Address kTutorialList               = 0x1461442c8ULL;
+inline constexpr Address kMenuTutorialList           = 0x146144330ULL;
+inline constexpr Address kNpcVoiceList               = 0x146144398ULL;
+inline constexpr Address kCommandComboList           = 0x1461870b8ULL;
 
 // ----- sys::data::*List (SaveTempListBase derivatives) --------------------
-inline constexpr Address kGemList                    = 0x145153930ULL;
-inline constexpr Address kItemPendulumList           = 0x145153998ULL;
+inline constexpr Address kGemList                    = 0x146135738ULL;
+inline constexpr Address kItemPendulumList           = 0x1461357a0ULL;
 
 // ----- typed save-field wrappers ------------------------------------------
 // `SaveDataUnit<T,1>` is a 0x20-byte wrapper around a pointer to a single
@@ -231,8 +233,8 @@ inline constexpr Address kItemPendulumList           = 0x145153998ULL;
 //   +0x08 refcount/flag (=1 when live)
 //   +0x10 ptr to live storage (the actual scalar lives here in the save blob)
 //   +0x18 cached copy of *(ptr) as a 4-byte value (+0x1C pad)
-inline constexpr Address kSaveDataUnitInt1  = 0x144800AA0ULL; // SaveDataUnit<int,1>
-inline constexpr Address kSaveDataUnitUint1 = 0x1447FF120ULL; // SaveDataUnit<unsigned int,1>
+inline constexpr Address kSaveDataUnitInt1  = 0x1454be8a0ULL; // SaveDataUnit<int,1>
+inline constexpr Address kSaveDataUnitUint1 = 0x1454bc4c0ULL; // SaveDataUnit<unsigned int,1>
 
 } // namespace vft
 
@@ -241,9 +243,11 @@ inline constexpr Address kSaveDataUnitUint1 = 0x1447FF120ULL; // SaveDataUnit<un
 // ---------------------------------------------------------------------------
 namespace name_string {
 
-inline constexpr Address kCharacterManager           = 0x1451b1b2aULL;
-inline constexpr Address kItemManager                = 0x1451b1c29ULL;
-inline constexpr Address kUserDataManager            = 0x1451b1d7aULL;
+// The standalone singleton-name strings used by the pre-2.0 executable are
+// no longer emitted by the game 2.0 recompile.
+inline constexpr Address kCharacterManager           = 0;
+inline constexpr Address kItemManager                = 0;
+inline constexpr Address kUserDataManager            = 0;
 
 } // namespace name_string
 
@@ -252,10 +256,10 @@ inline constexpr Address kUserDataManager            = 0x1451b1d7aULL;
 // ---------------------------------------------------------------------------
 namespace func {
 
-inline constexpr Address kAppMainLoopBoot     = 0x140079040ULL; // vftable slot 1
-inline constexpr Address kAppMainLoopTick     = 0x14007f460ULL; // vftable slot 2
-inline constexpr Address kAppMainLoopShutdown = 0x140148360ULL; // vftable slot 3
-inline constexpr Address kAppMainLoopCtor     = 0x140194430ULL; // installs vftable
+inline constexpr Address kAppMainLoopBoot     = 0x140089600ULL; // vftable slot 1
+inline constexpr Address kAppMainLoopTick     = 0x1400915a0ULL; // vftable slot 2
+inline constexpr Address kAppMainLoopShutdown = 0x14014cf00ULL; // vftable slot 3
+inline constexpr Address kAppMainLoopCtor     = 0x1401a3ad0ULL; // installs vftable
 
 } // namespace func
 
@@ -290,20 +294,6 @@ inline constexpr std::uint32_t kEmptyKey = 0x887AE0B0u;
 } // namespace sentinel
 
 // ---------------------------------------------------------------------------
-// Byte patterns scanned for in `.text` to recover dynamic offsets.
-// ---------------------------------------------------------------------------
-namespace pattern {
-
-// Locates the `LEA RCX, [RSI + disp32]` that materialises a pointer to the
-// per-entity PlayerStats struct. `kPlayerDataOffsetDispPos` is the byte
-// offset of the disp32 within the matched pattern.
-inline constexpr const char* kPlayerDataOffset =
-    "3D B0 E0 7A 88 0F ?? ?? ?? ?? ?? B8 B0 E0 7A 88 48 8D 8E ?? ?? ?? ??";
-inline constexpr std::ptrdiff_t kPlayerDataOffsetDispPos = 19;
-
-} // namespace pattern
-
-// ---------------------------------------------------------------------------
 // Static instance addresses ("singletons that live at a fixed RVA").
 // These are NOT pointer slots — they are the object itself, allocated in the
 // engine's `.data` section by a CRT static initialiser or in-place inside
@@ -311,43 +301,29 @@ inline constexpr std::ptrdiff_t kPlayerDataOffsetDispPos = 19;
 // ---------------------------------------------------------------------------
 namespace instance {
 
-// FUN_140194430 (AppMainLoop ctor) at 0x140194455 writes the vftable here.
-inline constexpr Address kAppMainLoop            = 0x145e47650ULL;
+// AppMainLoop ctor installs the vftable here.
+inline constexpr Address kAppMainLoop            = 0x14701a5a8ULL;
 
-// FUN_140211f60 (cCameraGame ctor) at 0x14021216a writes the vftable here.
-inline constexpr Address kCameraGame             = 0x1468b4f90ULL;
+inline constexpr Address kCameraGame             = 0x147c22320ULL;
 
-// FUN_140194430 (AppMainLoop ctor) at 0x14019495c writes the vftable here.
-// (Sub-object of AppMainLoop at offset 0x920.)
-inline constexpr Address kNpcAppearanceManager   = 0x145e47f70ULL;
+inline constexpr Address kNpcAppearanceManager   = 0x14701af08ULL;
 
-// Four static `cCameraApp`-derived instances (all share base `Fw::cCameraBase`
-// and intermediate `cCameraApp`). The first three were introduced in
-// FUN_140214000 around offsets 0x14021403B, 0x14021414B, 0x14021425B; the
-// fourth is the `cCameraGame` itself reused above.
-inline constexpr Address kCameraApp0             = 0x146093dd0ULL;
-inline constexpr Address kCameraApp1             = 0x145e4a360ULL;
-inline constexpr Address kCameraApp2             = 0x145e4a730ULL;
+// Three static `cCameraApp`-derived instances. Their final vftables belong
+// to derived camera modes rather than `cCameraApp` itself.
+inline constexpr Address kCameraApp0             = 0x14701bcf0ULL;
+inline constexpr Address kCameraApp1             = 0x14701c120ULL;
+inline constexpr Address kCameraApp2             = 0x14701c510ULL;
 
-// Out-of-frustum / streaming manager (vftable 0x1448090C8). The Impl is at
-// inst+0x18.
-inline constexpr Address kOtManager              = 0x146741020ULL;
+// Out-of-frustum / streaming manager.
+inline constexpr Address kOtManager              = 0x147a7f880ULL;
 
 // Hit-flash effect manager.
-inline constexpr Address kHitflashManager        = 0x1468b7500ULL;
+inline constexpr Address kHitflashManager        = 0x147c248e0ULL;
 
 // Photo-mode prohibit/impossible state machines (sub-objects of PhotoManager
 // data). These are co-located in `.data` near the PhotoManager pointer slot.
-inline constexpr Address kPhotoProhibitManager   = 0x145e54a98ULL;
-inline constexpr Address kPhotoImpossibleManager = 0x145e54ae8ULL;
-
-// NOTE: `Graphine::LogManager` is reported as a static at 0x146830220 by the
-// vftable XREF scan, but the live qword there is zero — either lazy init or
-// it's a `.bss` slot the manager is *moved into* later. Not listed here.
-//
-// NOTE: `BaOminousFormManager` was reported as a pointer slot at 0x14683BD88
-// but its dereferenced value lands back inside the module (it's actually a
-// `.data` sub-object), not a heap manager. Not listed here.
+inline constexpr Address kPhotoProhibitManager   = 0x14702e3e0ULL;
+inline constexpr Address kPhotoImpossibleManager = 0x14702e430ULL;
 
 } // namespace instance
 
@@ -357,49 +333,47 @@ inline constexpr Address kPhotoImpossibleManager = 0x145e54ae8ULL;
 // ---------------------------------------------------------------------------
 namespace ptr_slot {
 
-// FUN_14007f460 stores the live heap address of PhotoManager here.
-inline constexpr Address kPhotoManager           = 0x145e54e20ULL;
+inline constexpr Address kPhotoManager           = 0x1472f9430ULL;
 
-// FUN_14007f460 stores aliases of NetworkSystemRpcManager.
-inline constexpr Address kNetworkSystemRpcManager = 0x145fc7c70ULL;
+inline constexpr Address kNetworkSystemRpcManager = 0x1471ae830ULL;
 
-// FUN_14007f460 stores the heap pointer to a stage::quest::ProgressManager-like instance.
-inline constexpr Address kProgressManager        = 0x14683a800ULL;
+inline constexpr Address kProgressManager        = 0x147baa5f0ULL;
 
 // Stage object placement manager.
-inline constexpr Address kStagePlacementManager  = 0x1467345a0ULL;
+inline constexpr Address kStagePlacementManager  = 0x147ab0110ULL;
 
 // Navigation-mesh manager (for AI pathing).
-inline constexpr Address kNavimeshManager        = 0x1468cfbd8ULL;
+inline constexpr Address kNavimeshManager        = 0x147c47158ULL;
 
 // Renderer-side scene/composition managers.
-inline constexpr Address kSceneObjectManager     = 0x1468469e0ULL;
-inline constexpr Address kSubsurfaceShadingManager = 0x14612df00ULL;
+inline constexpr Address kSceneObjectManager       = 0x147bad4a0ULL;
+// No stable game 2.0 slot has been recovered for this legacy debug anchor.
+inline constexpr Address kSubsurfaceShadingManager = 0;
 
 // Hardware/platform user manager (Steam-side wrapper).
-inline constexpr Address kHwUserManagerImpl      = 0x145fc9328ULL;
+inline constexpr Address kHwUserManagerImpl      = 0x1471b19e8ULL;
 
-// Granite virtual-texture upload pipeline.
-inline constexpr Address kGraniteUploadManager   = 0x145c84b20ULL;
+// Slot holding the Granite context owner.
+inline constexpr Address kGraniteContext         = 0x147190120ULL;
 
 // Wwise sound dispatcher.
-inline constexpr Address kSoundDefaultSoftCallManager = 0x146855838ULL;
+inline constexpr Address kSoundDefaultSoftCallManager = 0x147bd7518ULL;
 
 // Entity / object registry (discovered via cCameraGame slot-7 getTarget at
-// FUN_1408991A0). Holds the live `cyan::ObjectRegistry`-style hashmap:
+// 0x140953b40). Holds the live `cyan::ObjectRegistry`-style hashmap:
 //   *(slot)            -> registry object
 //   registry + 0x20    -> u64 key array
 //   registry + 0x48    -> u64 value array
 // `EntityHandle` keys map to live `Entity*` values through this.
-inline constexpr Address kEntityRegistry         = 0x145e4b678ULL;
+inline constexpr Address kEntityRegistry         = 0x14701e4a8ULL;
 
 // SaveDataManager static pointer slot. Loaded by every SaveDataUnit
-// installer in `FUN_14007f460` (`MOV RAX, qword ptr [0x145fcae68]`). The
+// installer in AppMainLoop::tick. The
 // dereferenced object holds the construction context for save fields and a
 // `[+0x8a0]` flag that gates registration. Not used yet for currency
 // resolution (we fingerprint via vftable scan instead), but kept here as
 // the canonical static anchor for the save data subsystem.
-inline constexpr Address kSaveDataManager        = 0x145fcae68ULL;
+inline constexpr Address kSaveDataManager        = 0x1471b3978ULL;
 
 } // namespace ptr_slot
 
@@ -409,8 +383,19 @@ inline constexpr Address kSaveDataManager        = 0x145fcae68ULL;
 // ---------------------------------------------------------------------------
 namespace offset {
 
+// Game 2.0 no longer materialises this pointer with a stable instruction
+// sequence. The direct Entity-relative offset was verified against live
+// level / HP / attack / power values on the current build.
+namespace player_entity {
+    inline constexpr std::ptrdiff_t kPlayerData = 0x15030;
+} // namespace player_entity
+
+namespace granite_context {
+    inline constexpr std::ptrdiff_t kUploadManager = 0x15c0;
+} // namespace granite_context
+
 // table::SaveListBase<TData, Key, MaxCount> layout. Verified by inspecting
-// the in-tick constructor (FUN_14007f460) for `sys::data::CharaList` and the
+// the in-tick constructor for `sys::data::CharaList` and the
 // per-entry copy loop in FUN_140a68fa0: 40 slots of stride 0x3120 starting
 // at +0x10. Each entry carries a `liveness` qword at +0x08 (sentinel
 // `0xFFFFFFFFFFFFFFFF` == empty) and the entry's key (character id hash for
@@ -429,15 +414,12 @@ namespace chara_data {
 } // namespace chara_data
 
 // Offsets of `sys::data::*List` inside the parent save-data aggregate
-// (the world struct constructed by AppMainLoop slot 2 / FUN_14007f460).
+// (the world struct constructed by AppMainLoop slot 2).
 //
-// Verified for CharaList and CharaPresetList by reading the assembly window
-// around 14008ac1f / 14008ac3c.
+// CharaList remains at +0xd70 on Steam build 24245499.
 namespace save_aggregate {
     inline constexpr std::ptrdiff_t kCharaList       = 0xd70;
-    inline constexpr std::ptrdiff_t kCharaPresetList = 0x7bac0;
-    // Remaining list offsets (CharaList ... is contiguous, see vftable
-    // RVA cluster) still TBD.
+    // Remaining list offsets still TBD.
 } // namespace save_aggregate
 
 // `SaveDataUnit<T,1>` wrapper layout (0x20 bytes).
@@ -453,7 +435,7 @@ namespace save_data_unit {
 // active save slot's wallet (rupies, mastery points), player display name,
 // and various achievement bitfields. Located by SaveDataUnit<int,1>
 // fingerprint: rupie's `src_ptr` is the block base; mastery's `src_ptr`
-// equals base + 0x68. Verified live with rupies=863326879, mastery=99999.
+// equals base + 0x68. Re-verified live on Steam build 24245499.
 namespace user_save_block {
     inline constexpr std::ptrdiff_t kRupiesU32        = 0x00;
     inline constexpr std::ptrdiff_t kSlotActiveFlag   = 0x08; // u32, == 1 when active

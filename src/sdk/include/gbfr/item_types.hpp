@@ -1,11 +1,6 @@
 #pragma once
-// Generated from Nenkai's modding docs (https://nenkai.github.io/relink-modding/resources/item_ids/).
-// Hash -> { asset_id, name } for every known item in the cyan engine.
-//
-// The table is sorted by hash. Lookup is via linear search at runtime —
-// a few hundred entries, fits in a single L1 cache line walk per call.
-//
-// Add new rows when the modding docs update; the file is hand-curated for now.
+// Generated hash -> { asset_id, name } catalog for items, sigils, and
+// wrightstone templates. Refresh with `python scripts/update_catalogs.py`.
 
 #include "common.hpp"
 

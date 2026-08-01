@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 // gbfr/core/c_api.h — stable C ABI for `gbfr_core.dll`.
 //
-// Layout: lifecycle first, then one section per "manager" mirroring the
-// runtime layout of the game (see
-// `reverse/20260510/docs/scene-and-save-structure.md`). No section has any
-// real query yet — placeholders only. The shape will be filled in as the
-// SDK's field offsets are recovered.
+// Layout: lifecycle first, then one section per live game-data surface.
+// Character support remains partial; inventory, sigil, wrightstone and
+// currency sections expose read/write operations.
 //
 // Naming convention: `gbfr_<manager_snake_case>_<verb>`.
 #ifndef GBFR_CORE_C_API_H
@@ -107,7 +105,7 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_combat_get_current_info(GbfrCombatI
 // Populate `out_info` by reading from an explicit Entity pointer. Used
 // when entity discovery has been handled out-of-band (e.g. the user
 // supplies an address found via `debug` scans, or an injected hook fires).
-// Reads PlayerStats at `entity + player_data_offset` (auto-discovered).
+// Reads PlayerStats at `entity + player_data_offset` (verified per build).
 GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_combat_read_from_entity(
     uint64_t entity_addr, GbfrCombatInfo* out_info);
 
@@ -170,9 +168,10 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_sigil_get_at(uint32_t index,
                                                           GbfrSigilInfo* out_info);
 // Update fields on the live GemList entry currently exposed at `index`.
 // `sigil_level` writes the base sigil level. `trait1_name` and
-// `trait2_name` are looked up case-insensitively in the skill table; pass
-// NULL or empty to leave that trait unchanged. Returns GBFR_ERR_NOT_FOUND
-// when a non-empty trait name does not resolve.
+// `trait2_name` accept a case-insensitive display name or exact `SKILL_*`
+// asset ID; pass NULL or empty to leave that trait unchanged. Ambiguous
+// display names return GBFR_ERR_NOT_FOUND unless they match the current
+// trait, preserving unchanged editor round-trips.
 GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_sigil_set_fields(
     uint32_t    index,
     uint32_t    sigil_level,
@@ -208,10 +207,10 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_wrightstone_get_count(uint32_t* out
 GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_wrightstone_get_at(uint32_t index,
                                                                 GbfrWrightstoneInfo* out_info);
 // Update fields on the live ItemPendulumList entry currently exposed at
-// `index`. Each `traitN_name` is looked up case-insensitively in the skill
-// table; pass NULL or empty to leave that trait's hash unchanged (level is
-// still written). Returns GBFR_ERR_NOT_FOUND when a non-empty trait name
-// does not resolve.
+// `index`. Each `traitN_name` accepts a case-insensitive display name or
+// exact `SKILL_*` asset ID; pass NULL or empty to leave that trait's hash
+// unchanged (level is still written). Ambiguous display names return
+// GBFR_ERR_NOT_FOUND unless they match the current trait.
 GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_wrightstone_set_fields(
     uint32_t    index,
     const char* trait1_name, uint32_t trait1_level,

@@ -3,8 +3,8 @@
 //
 // `CharacterManager` has no virtual methods (no vftable was emitted), so it
 // is reached only through the cyan singleton registry. The class string
-// `"CharacterManager"` lives in `.rdata` near 0x1451b1b2a (label
-// `s_CharacterManager`).
+// The standalone singleton-name string used before game 2.0 is no longer
+// emitted; `kNameStringRva` is therefore zero on the current build.
 //
 // Inner types observed in RTTI:
 //   - CharacterManager::QuestUseParam

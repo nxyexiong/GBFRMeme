@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 // gbfr/ui/ui.hpp — top-level UI draw entry point.
 //
-// Renders the sections that mirror the `gbfr_core` C API (CharacterManager,
-// ItemManager, PlayerDataManager). Section bodies are placeholders; widgets
-// will be added once the corresponding C-API surface lands.
+// Renders wallet, item, sigil and wrightstone editors backed by the
+// `gbfr_core` C API.
 #pragma once
 
 namespace gbfr::ui {

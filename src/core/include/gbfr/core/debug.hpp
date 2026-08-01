@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -60,6 +61,12 @@ template <class T>
 // `max_results` caps the output; reads happen in 1 MiB chunks.
 [[nodiscard]] std::vector<Address> scan_qword_in_process(
     const Session& s, std::uint64_t value, std::size_t max_results = 64);
+
+// First aligned occurrence of any value in `values` across all committed
+// readable process regions. Walks the address space once, which is much
+// cheaper than calling scan_qword_in_process once per candidate vftable.
+[[nodiscard]] Address scan_any_qword_in_process(
+    const Session& s, std::span<const std::uint64_t> values);
 
 // 4-byte little-endian variant. Aligned at 4 bytes. Useful for finding
 // fields whose surrounding bytes aren't predictable.

@@ -3,7 +3,7 @@
 # Builds a tiny CLI that:
 #   *  -h           prints usage
 #   *  -i           injects gbfr_core.dll into the game and exits
-#   *  -c           CLI form (placeholder for now)
+#   *  -c           CLI and reverse-engineering commands
 #   *  (no args)    external form — calls gbfr_init(EXTERNAL) and blocks
 #                   on gbfr_wait_for_exit()
 #

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // gbfr/managers/quest_systems.hpp
 //
-// stage::quest namespace — vftables in 0x145153cd8 .. 0x145153e98.
-//   ProgressManager        @ 0x1447fc698
-//   MainQuestManager       @ 0x145153cd8
-//   MultiQuestManager      @ 0x145153d58
-//   FateEpisodeManager     @ 0x145153d98
-//   BaseTownQuestManager   @ 0x145153dd8
-//   TrialBattleManager     @ 0x145153e18
-//   ChallengeMissionManager @ 0x145153e58
-//   ShortStoryQuestManager @ 0x145153e98
+// stage::quest namespace — Steam build 24245499 vftables.
+//   ProgressManager         @ 0x1454b8da8
+//   MainQuestManager        @ 0x146139b70
+//   MultiQuestManager       @ 0x146139c70
+//   FateEpisodeManager      @ 0x146139cf0
+//   BaseTownQuestManager    @ 0x146139d70
+//   TrialBattleManager      @ 0x146139df0
+//   ChallengeMissionManager @ 0x146139e70
+//   ShortStoryQuestManager  @ 0x146139ef0
 //
 // QuestSystem is the umbrella runtime; both it and ProgressManager appear
 // only through `cyan::Singleton<T>` (and ProgressManager has a vftable, the

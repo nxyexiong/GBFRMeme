@@ -56,14 +56,13 @@ public:
     // verified offset; cached thereafter. Returns 0 if not found.
     [[nodiscard]] Address save_aggregate_address();
 
-    // Offset of the `PlayerStats` struct relative to a player Entity. Found
-    // via signature scan (matches the gbfr-logs technique: a comparison
-    // against the empty-string hash 0x887AE0B0 followed by `LEA rcx,
-    // [rsi+OFFSET]`). Returns 0 if the pattern is not present.
+    // Offset of the `PlayerStats` struct relative to a player Entity.
+    // Game 2.0 resolves the property through a runtime table, so this is a
+    // build-specific verified offset rather than a byte-pattern result.
     [[nodiscard]] std::uint32_t player_data_offset();
 
-    // Scan the process for any live player Entity by looking for any of the
-    // 26 known per-character vftables. First call walks the address space
+    // Scan the process for any live player Entity by looking for the known
+    // playable-character vftables. First call walks the address space
     // (~80s); subsequent calls return the cached address. Returns the live
     // Entity pointer or 0 if no player is currently spawned.
     [[nodiscard]] Address find_local_player();
@@ -88,7 +87,6 @@ private:
     std::unique_ptr<gbfr::IMemory> m_memory;
     std::unique_ptr<gbfr::Game>    m_game;
     Address                        m_save_aggregate{0};
-    std::uint32_t                  m_player_data_offset{0};
     Address                        m_local_player{0};
     Address                        m_user_save_block{0};
     std::unordered_map<Address, Address> m_list_cache;

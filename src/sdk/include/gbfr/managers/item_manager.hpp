@@ -2,7 +2,8 @@
 // gbfr/managers/item_manager.hpp
 //
 // `ItemManager` has no vftable. Name string at `s_ItemManager`
-// (RVA 0x1451b1c29). Public API surface visible from lambda RTTI:
+// The pre-2.0 standalone singleton-name string is no longer emitted.
+// Public API surface visible from lambda RTTI:
 //   ItemManager::createRewardBySet(
 //       Reward const&, Behavior*, EntityHandle, int,
 //       Hw::cVec4 const*, Hw::cVec4 const*, float,

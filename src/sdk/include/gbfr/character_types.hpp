@@ -5,7 +5,7 @@
 // `"Pl0000"` -> `0x26A4848A`) to its asset prefix and human-readable name.
 //
 // Source: cross-referenced from
-//   - false-spring/gbfr-logs: src-tauri/src/parser/constants.rs
+//   - villith/relink-logs: src-tauri/src/parser/constants.rs
 //   - nenkai.github.io/relink-modding: character pages
 //
 // The hash function is `gbfr::StringHash32` (custom xxHash32) — verified
@@ -29,35 +29,42 @@ struct CharacterTypeEntry {
     Address          vftable_rva; // vftable that the entity uses (RVA against
                                  // the design-time image base 0x140000000).
                                  // 0 if not statically known.
+    bool             is_playable = true;
 };
 
-inline constexpr std::array<CharacterTypeEntry, 26> kCharacterTypes = {{
-    {0x26A4848A, "Pl0000", "Gran",                    0x14517FA30ULL},
-    {0x9498420D, "Pl0100", "Djeeta",                  0x1451802D0ULL},
-    {0x34D4FD8F, "Pl0200", "Katalina",                0x144DE27D8ULL},
-    {0xF8D73D33, "Pl0300", "Rackam",                  0x144DBB4B8ULL},
-    {0x7B5934AD, "Pl0400", "Io",                      0x144DE76B8ULL},
-    {0x443D46BB, "Pl0500", "Eugen",                   0x144C94368ULL},
-    {0xA9D6569E, "Pl0600", "Rosetta",                 0x144DEEFC8ULL},
-    {0xFBA6615D, "Pl0700", "Ferry",                   0x144DF6498ULL},
-    {0x63A7C3F0, "Pl0800", "Lancelot",                0x144DFD988ULL},
-    {0xF96A90C2, "Pl0900", "Vane",                    0x144E04ED8ULL},
-    {0x28AC1108, "Pl1000", "Percival",                0x144E0C358ULL},
-    {0x94E2514E, "Pl1100", "Siegfried",               0x144C891C8ULL},
-    {0x2B4AA114, "Pl1200", "Charlotta",               0x144E138C8ULL},
-    {0xC97F3365, "Pl1300", "Yodarha",                 0x144E1ACD8ULL},
-    {0x601AA977, "Pl1400", "Narmaya",                 0x144DC58E8ULL},
-    {0xBCC238DE, "Pl1500", "Ghandagoza",              0x144E22A48ULL},
-    {0xC3155079, "Pl1600", "Zeta",                    0x144E29EE8ULL},
-    {0xD16CFBDE, "Pl1700", "Vaseraga",                0x144C81BF8ULL},
-    {0x6FDD6932, "Pl1800", "Cagliostro",              0x144BC9EA8ULL},
-    {0x8056ABCD, "Pl1900", "Id",                      0x1451584F0ULL},
-    {0xF5755C0E, "Pl2000", "Id (Transformed)",        0x145159630ULL},
-    {0x9C89A455, "Pl2100", "Sandalphon",              0x144CBBE38ULL},
-    {0x59DB0CD9, "Pl2200", "Seofon",                  0x144E321E8ULL},
-    {0xDA5A8E25, "Pl2300", "Tweyen",                  0x144E3A148ULL},
-    {0x2AF678E8, "Pl0700Ghost",          "Ferry Ghost",            0x144BB59F8ULL},
-    {0x8364C8BC, "Pl0700GhostSatellite", "Ferry Ghost (Satellite)",0x144BB6888ULL},
+inline constexpr std::array<CharacterTypeEntry, 32> kCharacterTypes = {{
+    {0x26A4848A, "Pl0000", "Gran",                    0x14616DCA8ULL},
+    {0x9498420D, "Pl0100", "Djeeta",                  0x14616E7A8ULL},
+    {0x34D4FD8F, "Pl0200", "Katalina",                0x145CAE340ULL},
+    {0xF8D73D33, "Pl0300", "Rackam",                  0x145C8E3E0ULL},
+    {0x7B5934AD, "Pl0400", "Io",                      0x145CB40F0ULL},
+    {0x443D46BB, "Pl0500", "Eugen",                   0x145AEE940ULL},
+    {0xA9D6569E, "Pl0600", "Rosetta",                 0x145CBCBE0ULL},
+    {0xFBA6615D, "Pl0700", "Ferry",                   0x145CC5220ULL},
+    {0x63A7C3F0, "Pl0800", "Lancelot",                0x145CCD780ULL},
+    {0xF96A90C2, "Pl0900", "Vane",                    0x145CD5DE0ULL},
+    {0x28AC1108, "Pl1000", "Percival",                0x145CDE310ULL},
+    {0x94E2514E, "Pl1100", "Siegfried",               0x145AE36C0ULL},
+    {0x2B4AA114, "Pl1200", "Charlotta",               0x145CE6AD0ULL},
+    {0xC97F3365, "Pl1300", "Yodarha",                 0x145CEF030ULL},
+    {0x601AA977, "Pl1400", "Narmaya",                 0x145CF7ED0ULL},
+    {0xBCC238DE, "Pl1500", "Ghandagoza",              0x145D00620ULL},
+    {0xC3155079, "Pl1600", "Zeta",                    0x145D08CB0ULL},
+    {0xD16CFBDE, "Pl1700", "Vaseraga",                0x145AD28A0ULL},
+    {0x6FDD6932, "Pl1800", "Cagliostro",              0x1459E9D50ULL},
+    {0x8056ABCD, "Pl1900", "Id",                      0x14617F198ULL},
+    {0xF5755C0E, "Pl2000", "Id (Transformed)",        0x1461807B8ULL},
+    {0x9C89A455, "Pl2100", "Sandalphon",              0x145B251B0ULL},
+    {0x59DB0CD9, "Pl2200", "Seofon",                  0x145D11F80ULL},
+    {0xDA5A8E25, "Pl2300", "Tweyen",                  0x145D1AE80ULL},
+    {0x4C714F77, "Pl2400", "Gallanza",                 0x145D235A0ULL},
+    {0xE330418F, "Pl2500", "Maglielle",                0x145D2C500ULL},
+    {0xE3D1BE26, "Pl2600", "Beatrix",                  0x145D34E90ULL},
+    {0x91418145, "Pl2700", "Eustace",                  0x145D3D720ULL},
+    {0x48ADDA36, "Pl2800", "Fraux",                    0x145D47370ULL},
+    {0x0A58FB4D, "Pl2900", "Fediel",                   0x145ADAF50ULL},
+    {0x2AF678E8, "Pl0700Ghost",          "Ferry Ghost",            0x1459D3080ULL, false},
+    {0x8364C8BC, "Pl0700GhostSatellite", "Ferry Ghost (Satellite)",0x1459D3F90ULL, false},
 }};
 
 // Compile-time guard: each table row must reproduce when hashed.

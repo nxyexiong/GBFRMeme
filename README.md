@@ -5,34 +5,31 @@ A C++20 toolkit for inspecting **Granblue Fantasy: Relink**
 game's internal structures and a small DLL that can be loaded into (or
 attached from outside) the running game process.
 
-> **Status:** early scaffolding. The class hierarchy, manager registry, save
-> data list cluster and main-loop control flow are mapped out, but most byte
-> offsets inside individual game structs are still marked
-> `GBFR_TODO_OFFSET(...)` until they're verified against decompilation or
-> live memory.
+> **Supported game build:** Steam build `24245499` (2026-07-31).
+> Wallet, item, sigil and wrightstone reads/writes are live. Character and
+> broader manager wrappers remain partial where fields are still marked
+> `GBFR_TODO_OFFSET(...)`.
 
 ## Repository layout
 
 ```text
 GBFRMeme/
-├── CMakeLists.txt              top-level build (adds src/sdk then src/core)
+├── CMakeLists.txt              top-level build
 └── src/
-    ├── sdk/                    gbfr::sdk — header-only-ish, host-agnostic
-    │   ├── CMakeLists.txt
-    │   ├── include/gbfr/       public SDK headers (see below)
-    │   └── src/game.cpp        Game facade implementation
-    └── core/                   gbfr::core — DLL with attach + scanning
-        ├── CMakeLists.txt
-        ├── include/gbfr/core/  process_attach / signatures / session / c_api
-        └── src/                memory backends, signature scanner, DLL entry
+    ├── sdk/                    typed game wrappers and metadata
+    ├── ui/                     ImGui Win32/D3D11 host and injected overlay
+    ├── core/                   DLL, memory backends, scans and stable C ABI
+    └── app/                    launcher, injector, CLI and debug commands
 ```
 
-The two C++ targets:
+The four C++ targets:
 
-| CMake target | Kind          | Depends on | Purpose                                              |
-| ------------ | ------------- | ---------- | ---------------------------------------------------- |
-| `gbfr::sdk`  | `STATIC` lib  | —          | Typed wrappers + RTTI-recovered constants. No I/O.   |
-| `gbfr::core` | `SHARED` DLL  | `gbfr::sdk`, `psapi` | Memory backends, attach, signatures, stable C ABI. |
+| CMake target | Kind         | Purpose |
+| ------------ | ------------ | ------- |
+| `gbfr::sdk`  | `STATIC` lib | Typed wrappers, metadata and recovered constants. |
+| `gbfr::ui`   | `STATIC` lib | ImGui Win32/D3D11 host and swap-chain overlay. |
+| `gbfr::core` | `SHARED` DLL | Process attach, memory scans, C ABI and UI runtime. |
+| `gbfr_app`   | Executable   | `GBFRMeme.exe` launcher, injector and CLI. |
 
 ## Building
 
@@ -41,9 +38,9 @@ cmake -S . -B build
 cmake --build build --config Release
 ```
 
-Outputs land in `build/src/core/Release/gbfr_core.dll` and the corresponding
-`.lib`. The SDK is consumed transitively; you generally only link
-`gbfr::core` from a host.
+Outputs land in `build/src/core/Release/gbfr_core.dll` and
+`build/src/app/Release/GBFRMeme.exe`; the app directory also receives a copy
+of the DLL for injection and external launch modes.
 
 ## SDK — `src/sdk/include/gbfr/`
 
@@ -73,6 +70,9 @@ All vftable RVAs are encoded against the design-time image base
 `0x140000000`. At runtime they are translated to live addresses via
 `rva_to_absolute(module_base, rva)` in `common.hpp`.
 
+The game 2.0 English item, sigil and trait catalogs are generated from the
+current `villith/relink-logs` data with `python scripts/update_catalogs.py`.
+
 ## Core DLL — `src/core/include/gbfr/core/`
 
 `gbfr::core` is the host glue. It does I/O, process attach and pattern
@@ -85,7 +85,7 @@ scanning, and exposes a **stable C ABI** so non-C++ hosts can drive it.
 | [`memory/external_memory.hpp`](src/core/include/gbfr/core/memory/external_memory.hpp) | `IMemory` backed by `ReadProcessMemory` / `WriteProcessMemory` |
 | [`signatures.hpp`](src/core/include/gbfr/core/signatures.hpp)     | IDA-style `compile_pattern` + `find_pattern` + `find_lea_refs_to` heuristic for locating `cyan::Singleton<T>` installers |
 | [`session.hpp`](src/core/include/gbfr/core/session.hpp)           | `Session::attach_in_process()` / `attach_external_by_name(...)`, owns the `IMemory` and the SDK `Game` |
-| [`c_api.h`](src/core/include/gbfr/core/c_api.h)                   | The stable C entry points: `gbfr_init`, `gbfr_shutdown`, per-manager sections (placeholders for now) |
+| [`c_api.h`](src/core/include/gbfr/core/c_api.h)                   | Lifecycle plus character, combat, inventory, sigil, wrightstone, currency and debug entry points |
 
 The DLL is `gbfr_core.dll`. `gbfr_api_version()` is reserved for ABI
 bumping. All ABI functions are `__cdecl` and use the `GbfrStatus` enum.
@@ -94,22 +94,22 @@ bumping. All ABI functions are `__cdecl` and use the `GbfrStatus` enum.
 
 # Game structure (Granblue Fantasy: Relink)
 
-The constants encoded by the SDK (vftable RVAs, `MaxCount`s, template
-parameters, manager class-name strings) were recovered from a headless
-analysis of `granblue_fantasy_relink.exe` at image base `0x140000000`.
+The constants encoded by the SDK were recovered from Steam build `24245499`
+(`SHA-256 1BBBEC61AAB7F75FE328CF6BFE0247EBDBCEC6C404CEC12C032B8FFA41D22102`)
+at image base `0x140000000`.
 
 ## Runtime: one polymorphic main loop
 
 The whole game is a single `AppMainLoop : MainLoop` instance installed by the
-CRT path through `FUN_140194430`. Its vftable lives at RVA `0x145153708`:
+CRT path through `FUN_1401a3ad0`. Its vftable lives at `0x146135510`:
 
-| Slot | Function    | Size   | Role                                                              |
-| ---- | ----------- | ------ | ----------------------------------------------------------------- |
-| 0    | `0x140198260` |  38 B | scalar deleting destructor                                        |
-| 1    | `0x140079040` |  13 KB | boot/init — places `SaveDataReadModule`                          |
-| 2    | `0x14007f460` | **328 KB** | **per-frame tick** — also placement-new's the `sys::data::*` list cluster on first run |
-| 3    | `0x140148360` | 2.7 KB | shutdown/drain                                                    |
-| 4–5  | `0x14007d530` |   1 B | no-op pure-virtual stubs                                          |
+| Slot | Function      | Role |
+| ---- | ------------- | ---- |
+| 0    | `0x1401a7d50` | scalar deleting destructor |
+| 1    | `0x140089600` | boot/init |
+| 2    | `0x1400915a0` | per-frame tick and save-list construction |
+| 3    | `0x14014cf00` | shutdown/drain |
+| 4–5  | `0x1400894a0` | no-op stubs |
 
 One frame = one call to slot 2. Everything else hangs off subsystems:
 
@@ -130,28 +130,21 @@ One frame = one call to slot 2. Everything else hangs off subsystems:
 
 ## Managers via `cyan::Singleton<T>`
 
-The "manager" classes have **no vftable of their own** — they are accessed
-through `cyan::Singleton<T>` keyed by `cyan::string_hash32(class_name)`.
-Their class-name strings live as `s_*` labels in `.rdata` near `0x1451b1xxx`:
-
-```
-s_CharacterManager   @ 0x1451b1b2a
-s_ItemManager        @ 0x1451b1c29
-s_UserDataManager    @ 0x1451b1d7a
-... (and so on, one per manager)
-```
-
-`gbfr::core::Session::resolve_singletons_via_name_strings()` reuses this:
-walk `lea` references to those strings to find each manager's installer
-function, and from there the static slot holding `this`.
+The non-polymorphic manager classes are still accessed through
+`cyan::Singleton<T>`, but the game 2.0 recompile no longer emits the standalone
+class-name strings used by the old resolver. The current inventory editor
+does not depend on that path: it locates live save-list objects by their
+RTTI-derived vftables. `resolve_singletons_via_name_strings()` remains
+unavailable until the new registry dispatch is mapped.
 
 ## Player data, three layers in RAM
 
 1. **Singleton managers** in `.data`: `CharacterManager`, `ItemManager`,
    `UserDataManager`, `PlayerDataManager`, `SaveDataManager`, `PhotoManager`,
    `cNpcAppearanceManager`, `NetworkSystemRpcManager`.
-2. **Save-data aggregate** built by `FUN_14007f460`: a contiguous cluster of
-   `sys::data::*List` objects (vftables in `0x1451538c8 .. 0x145193008`). This
+2. **Save-data aggregate** built by `FUN_1400915a0`: a cluster of
+   `sys::data::*List` objects whose current vftables are recorded individually
+   in `signatures.hpp`. This
    is the in-memory mirror of the slot save file.
 3. **Per-entity runtime state** on the heap as `Entity` objects, reached via
    `EntityHandle` and indexed by `unordered_map<uint, cyan::raw_ptr<Entity>>`.
@@ -228,8 +221,7 @@ Static metadata is in `table::*Data` rows held as
 
 ### Combat-frame parameters
 
-Per-aspect polymorphic objects on each player (vftables in
-`0x144805cc8 .. 0x14480e638`): `PlayerMoveParameter`,
+Per-aspect polymorphic objects on each player include `PlayerMoveParameter`,
 `PlayerBuffParameter`, `PlayerAilmentParameter`, `PlayerContributionParameter`,
 `PlayerAbilityUIParameter`, `PlayerAutoHomingParameter`,
 `PlayerLockOnParameter`, `PlayerAnimOverrideParameter`,

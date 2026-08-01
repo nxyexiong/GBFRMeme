@@ -328,7 +328,7 @@ int sub_hash(const std::vector<std::wstring>& a) {
     return 0;
 }
 
-// Resolve a character_type hash via the baked Pl0000..Pl2300 table. Does
+// Resolve a character_type hash via the baked Pl0000..Pl2900 table. Does
 // not require an attached session.
 int sub_lookup(const std::vector<std::wstring>& a) {
     if (a.size() != 1) {
@@ -377,7 +377,12 @@ int sub_app_main_loop() {
 int sub_instances() {
     Session s; if (!s) { std::fwprintf(stderr, L"attach: %s\n", status_name(s.status)); return 1; }
 
-    struct Anchor { const wchar_t* name; uint64_t rva; bool deref; };
+    struct Anchor {
+        const wchar_t* name;
+        uint64_t       rva;
+        bool           deref;
+        uint64_t       member_offset = 0;
+    };
     namespace sg = gbfr::signatures;
     const Anchor anchors[] = {
         // In-place statics: object lives at the RVA.
@@ -400,13 +405,18 @@ int sub_instances() {
         {L"cy::SceneObjectMgr     (slot)", sg::ptr_slot::kSceneObjectManager,      true},
         {L"cy::SubsurfaceShading  (slot)", sg::ptr_slot::kSubsurfaceShadingManager,true},
         {L"Hw::cUserManagerImpl   (slot)", sg::ptr_slot::kHwUserManagerImpl,       true},
-        {L"Granite::UploadManager (slot)", sg::ptr_slot::kGraniteUploadManager,    true},
+        {L"Granite::UploadManager (slot)", sg::ptr_slot::kGraniteContext, true,
+            static_cast<uint64_t>(sg::offset::granite_context::kUploadManager)},
         {L"Sound::DefSoftCallMgr  (slot)", sg::ptr_slot::kSoundDefaultSoftCallManager, true},
         {L"EntityRegistry         (slot)", sg::ptr_slot::kEntityRegistry,          true},
         {L"SaveDataManager        (slot)", sg::ptr_slot::kSaveDataManager,         true},
     };
 
     for (const auto& a : anchors) {
+        if (a.rva == 0) {
+            std::wprintf(L"%s : <not available for this build>\n", a.name);
+            continue;
+        }
         uint64_t abs_addr = 0;
         if (gbfr_debug_rva_to_abs(a.rva, &abs_addr) != GBFR_OK) {
             std::wprintf(L"%s : <rva failed>\n", a.name);
@@ -416,6 +426,7 @@ int sub_instances() {
             uint64_t live = 0;
             const auto st = gbfr_debug_read_u64(abs_addr, &live);
             if (st == GBFR_OK) {
+                if (live != 0) live += a.member_offset;
                 std::wprintf(L"%s : *0x%016llX -> 0x%016llX\n",
                              a.name,
                              static_cast<unsigned long long>(abs_addr),

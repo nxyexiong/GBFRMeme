@@ -535,21 +535,8 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_sigil_set_fields(
     const gbfr::Address list = s->find_save_list(gbfr::signatures::vft::kGemList);
     if (list == 0) return GBFR_ERR_NOT_FOUND;
 
-    // Resolve trait names up front so a bad name aborts before any writes.
-    std::uint32_t t1_hash = 0;
-    std::uint32_t t2_hash = 0;
     const bool have_t1 = trait1_name && trait1_name[0] != '\0';
     const bool have_t2 = trait2_name && trait2_name[0] != '\0';
-    if (have_t1) {
-        const auto* row = gbfr::find_skill_by_name(trait1_name);
-        if (!row) return GBFR_ERR_NOT_FOUND;
-        t1_hash = row->hash;
-    }
-    if (have_t2) {
-        const auto* row = gbfr::find_skill_by_name(trait2_name);
-        if (!row) return GBFR_ERR_NOT_FOUND;
-        t2_hash = row->hash;
-    }
 
     std::uint32_t live = 0;
     for (std::uint32_t i = 0; i < kGemListMaxCount; ++i) {
@@ -559,6 +546,21 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_sigil_set_fields(
         if (!s->memory().read(base, &e, sizeof(e))) continue;
         if (!sigil_entry_is_live(e)) continue;
         if (live == index) {
+            std::uint32_t t1_hash = e.first_trait_id;
+            std::uint32_t t2_hash = e.second_trait_id;
+            if (have_t1) {
+                const auto* row = gbfr::find_skill_by_name(
+                    trait1_name, e.first_trait_id);
+                if (!row) return GBFR_ERR_NOT_FOUND;
+                t1_hash = row->hash;
+            }
+            if (have_t2) {
+                const auto* row = gbfr::find_skill_by_name(
+                    trait2_name, e.second_trait_id);
+                if (!row) return GBFR_ERR_NOT_FOUND;
+                t2_hash = row->hash;
+            }
+
             const auto write_u32 = [&](std::ptrdiff_t off, std::uint32_t v) {
                 return s->memory().write(base + off, &v, sizeof(v));
             };
@@ -699,18 +701,12 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_wrightstone_set_fields(
     const gbfr::Address list = s->find_save_list(gbfr::signatures::vft::kItemPendulumList);
     if (list == 0) return GBFR_ERR_NOT_FOUND;
 
-    // Resolve names up front.
-    std::uint32_t hashes[3] = {0, 0, 0};
-    bool have[3] = {false, false, false};
     const char* names[3]    = {trait1_name, trait2_name, trait3_name};
-    for (int i = 0; i < 3; ++i) {
-        if (names[i] && names[i][0] != '\0') {
-            const auto* row = gbfr::find_skill_by_name(names[i]);
-            if (!row) return GBFR_ERR_NOT_FOUND;
-            hashes[i] = row->hash;
-            have[i]   = true;
-        }
-    }
+    const bool have[3] = {
+        names[0] && names[0][0] != '\0',
+        names[1] && names[1][0] != '\0',
+        names[2] && names[2][0] != '\0',
+    };
     const std::uint32_t levels[3] = {trait1_level, trait2_level, trait3_level};
 
     std::uint32_t live = 0;
@@ -721,6 +717,20 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_wrightstone_set_fields(
         if (!s->memory().read(base, &e, sizeof(e))) continue;
         if (!wrightstone_entry_is_live(e)) continue;
         if (live == index) {
+            std::uint32_t hashes[3] = {
+                e.trait1_id, e.trait2_id, e.trait3_id
+            };
+            const std::uint32_t current_hashes[3] = {
+                e.trait1_id, e.trait2_id, e.trait3_id
+            };
+            for (int k = 0; k < 3; ++k) {
+                if (!have[k]) continue;
+                const auto* row = gbfr::find_skill_by_name(
+                    names[k], current_hashes[k]);
+                if (!row) return GBFR_ERR_NOT_FOUND;
+                hashes[k] = row->hash;
+            }
+
             const auto write_u32 = [&](std::ptrdiff_t off, std::uint32_t v) {
                 return s->memory().write(base + off, &v, sizeof(v));
             };

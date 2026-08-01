@@ -9,6 +9,8 @@
 
 #include <windows.h>
 
+#include <array>
+
 namespace gbfr::core {
 
 Session::Session(ModuleInfo info, std::unique_ptr<gbfr::IMemory> mem) noexcept
@@ -70,19 +72,8 @@ Address Session::save_aggregate_address() {
 }
 
 std::uint32_t Session::player_data_offset() {
-    if (m_player_data_offset != 0) return m_player_data_offset;
-
-    // gbfr-logs signature; see signatures::pattern::kPlayerDataOffset.
-    const auto pat  = gbfr::signatures::pattern::kPlayerDataOffset;
-    const auto site = debug::scan_pattern(*this, pat);
-    if (site == 0) return 0;
-
-    const Address disp_addr = site
-        + static_cast<Address>(gbfr::signatures::pattern::kPlayerDataOffsetDispPos);
-    std::uint32_t disp = 0;
-    if (!m_memory->read(disp_addr, &disp, sizeof(disp))) return 0;
-    m_player_data_offset = disp;
-    return m_player_data_offset;
+    return static_cast<std::uint32_t>(
+        gbfr::signatures::offset::player_entity::kPlayerData);
 }
 
 Address Session::find_local_player() {
@@ -92,7 +83,8 @@ Address Session::find_local_player() {
         std::uint64_t vft = 0;
         if (m_memory->read(m_local_player, &vft, sizeof(vft))) {
             for (const auto& row : kCharacterTypes) {
-                if (rva(row.vftable_rva) == static_cast<Address>(vft)) {
+                if (row.is_playable &&
+                    rva(row.vftable_rva) == static_cast<Address>(vft)) {
                     return m_local_player;
                 }
             }
@@ -100,16 +92,16 @@ Address Session::find_local_player() {
         m_local_player = 0; // stale
     }
 
-    // Scan the process for any of the 26 known character vftables.
+    std::array<std::uint64_t, kCharacterTypes.size()> vftables{};
+    std::size_t count = 0;
     for (const auto& row : kCharacterTypes) {
-        const Address vft = rva(row.vftable_rva);
-        auto matches = debug::scan_qword_in_process(*this, static_cast<std::uint64_t>(vft), 1);
-        if (!matches.empty()) {
-            m_local_player = matches.front();
-            return m_local_player;
-        }
+        if (!row.is_playable) continue;
+        vftables[count++] = static_cast<std::uint64_t>(
+            rva(row.vftable_rva));
     }
-    return 0;
+    m_local_player = debug::scan_any_qword_in_process(
+        *this, std::span<const std::uint64_t>{vftables.data(), count});
+    return m_local_player;
 }
 
 Address Session::find_save_list(Address vftable_rva) {

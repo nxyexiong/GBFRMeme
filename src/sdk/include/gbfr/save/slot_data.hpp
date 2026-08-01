@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // gbfr/save/slot_data.hpp — in-memory mirror of slot save data.
 //
-// The save-data list cluster (every `sys::data::*List`) is constructed
-// contiguously by `FUN_14007f460` (`AppMainLoop::tick` slot 2). The relative
+// The save-data lists are constructed by `AppMainLoop::tick` (slot 2). The
+// game 2.0 recompile no longer keeps every list in one contiguous vftable
+// cluster. The relative
 // member offsets inside the parent struct are NOT yet known — this wrapper
 // requires the caller to supply the address of each list independently, OR
 // the base address of the cluster plus per-member offsets (TODO).

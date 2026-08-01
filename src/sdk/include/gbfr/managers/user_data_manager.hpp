@@ -2,7 +2,7 @@
 // gbfr/managers/user_data_manager.hpp
 //
 // `UserDataManager` — front for Steam / platform user data. No vftable.
-// Name string at `s_UserDataManager` (RVA 0x1451b1d7a).
+// The pre-2.0 standalone singleton-name string is no longer emitted.
 // Observed methods (from lambda RTTI):
 //   - bool UserDataManager::requestDLCInfo();
 #pragma once
