@@ -93,6 +93,7 @@ void print_usage() {
         L"      items                        List inventory items.\n"
         L"      sigils                       List sigils (rolled instances).\n"
         L"      wrightstones                 List wrightstones (rolled).\n"
+        L"      summons                      List owned summons.\n"
         L"      currency                     Show rupies + mastery points.\n"
         L"      debug <subcmd>               Low-level RE helpers; pass 'help'.\n"
         L"  (no flag)                     External form. Opens the GUI window\n"
@@ -361,6 +362,39 @@ int cli_wrightstones() {
     return 0;
 }
 
+int cli_summons() {
+    CliSession session;
+    if (!session) {
+        std::fwprintf(stderr, L"attach failed: %s\n", status_name(session.status));
+        return 1;
+    }
+    uint32_t count = 0;
+    GbfrStatus st = gbfr_summon_get_count(&count);
+    if (st != GBFR_OK) {
+        std::wprintf(L"summons: %s\n", status_name(st));
+        return (st == GBFR_ERR_NOT_AVAILABLE) ? 0 : 1;
+    }
+    std::wprintf(L"%u summon(s):\n", count);
+    for (uint32_t i = 0; i < count; ++i) {
+        GbfrSummonInfo info{};
+        st = gbfr_summon_get_at(i, &info);
+        if (st != GBFR_OK) {
+            std::wprintf(L"[%u]: %s\n", i, status_name(st));
+            continue;
+        }
+        std::wprintf(
+            L"[%3u] %-28hs | %-24hs L%-2u | %-24hs %u%hs\n",
+            i,
+            info.summon_name[0] ? info.summon_name : "<unknown>",
+            info.trait_name[0] ? info.trait_name : "<unknown>",
+            info.trait_level,
+            info.stat_type_name[0] ? info.stat_type_name : "<unknown>",
+            info.stat_value,
+            info.stat_is_percent ? "%" : "");
+    }
+    return 0;
+}
+
 int cli_currency() {
     CliSession s;
     if (!s) {
@@ -393,6 +427,7 @@ int run_cli(const std::vector<std::wstring>& args) {
     if (cmd == L"items")       return cli_items();
     if (cmd == L"sigils")      return cli_sigils();
     if (cmd == L"wrightstones") return cli_wrightstones();
+    if (cmd == L"summons")      return cli_summons();
     if (cmd == L"currency")    return cli_currency();
     if (cmd == L"debug")       return gbfr::app::cli_debug(rest);
 

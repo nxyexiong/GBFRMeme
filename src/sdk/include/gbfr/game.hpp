@@ -92,6 +92,7 @@ public:
         Address gem_list = 0;
         Address item_list = 0;
         Address item_pendulum_list = 0;
+        Address summon_stone_list = 0;
         Address ability_list = 0;
         Address scenario_list = 0;
         Address fate_ep_list = 0;

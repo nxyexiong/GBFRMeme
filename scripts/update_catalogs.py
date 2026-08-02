@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refresh the generated item, sigil, and trait lookup tables."""
+"""Refresh generated item, sigil, trait, summon, and summon-stat catalogs."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ITEM_CPP = ROOT / "src" / "sdk" / "src" / "item_types.cpp"
 SKILL_CPP = ROOT / "src" / "sdk" / "src" / "skill_types.cpp"
+SUMMON_CPP = ROOT / "src" / "sdk" / "src" / "summon_types.cpp"
 
 DEFAULT_REPOSITORY = "villith/relink-logs"
 DEFAULT_REF = "c1b5a32d6671ff4d710bfe2a228a70c20351311f"
@@ -117,13 +118,16 @@ def parse_existing(path: Path) -> dict[int, tuple[str, str]]:
     return entries
 
 
+def fetch_url_json(url: str) -> dict:
+    with urllib.request.urlopen(url) as response:
+        return json.load(response)
+
+
 def fetch_json(repository: str, ref: str, filename: str) -> dict[str, dict[str, str]]:
-    url = (
+    return fetch_url_json(
         f"https://raw.githubusercontent.com/{repository}/{ref}/"
         f"src-tauri/lang/en/{filename}"
     )
-    with urllib.request.urlopen(url) as response:
-        return json.load(response)
 
 
 def load_catalog(repository: str, ref: str, filenames: tuple[str, ...]) -> dict[int, tuple[str, str]]:
@@ -310,6 +314,90 @@ const SkillEntry* find_skill_by_name(std::string_view value) noexcept {{
 """
 
 
+def render_summons(
+    summons: dict[str, dict[str, str]],
+    bonuses: dict[str, dict[str, str]],
+    bonus_values: dict[str, dict],
+    repository: str,
+    ref: str,
+) -> str:
+    summon_rows = []
+    for hash_text, row in sorted(summons.items()):
+        summon_rows.append(
+            f'    {{0x{int(hash_text, 16):08X}, '
+            f'"{cpp_escape(row["key"])}", "{cpp_escape(row["text"])}"}},'
+        )
+
+    if set(bonuses) != set(bonus_values):
+        missing_values = sorted(set(bonuses) - set(bonus_values))
+        missing_names = sorted(set(bonus_values) - set(bonuses))
+        raise ValueError(
+            f"summon bonus catalog mismatch: "
+            f"missing values={missing_values}, missing names={missing_names}"
+        )
+
+    bonus_rows = []
+    for hash_text, row in sorted(bonuses.items()):
+        value_row = bonus_values[hash_text]
+        values = value_row["values"]
+        if len(values) != 10:
+            raise ValueError(f"summon bonus {hash_text} has {len(values)} values")
+        value_list = ", ".join(str(int(value)) for value in values)
+        percent = "true" if value_row["percent"] else "false"
+        bonus_rows.append(
+            f'    {{0x{int(hash_text, 16):08X}, '
+            f'"{cpp_escape(row["key"])}", "{cpp_escape(row["text"])}", '
+            f'{{{{{value_list}}}}}, {percent}}},'
+        )
+
+    return f"""// SPDX-License-Identifier: MIT
+// Generated from {repository} summon catalogs at {ref}.
+
+#include "gbfr/summon_types.hpp"
+
+namespace gbfr {{
+
+namespace {{
+
+constexpr SummonTypeEntry kSummonTypes[] = {{
+{chr(10).join(summon_rows)}
+}};
+
+constexpr SummonStatTypeEntry kSummonStatTypes[] = {{
+{chr(10).join(bonus_rows)}
+}};
+
+constexpr std::size_t kSummonStatTypeCount =
+    sizeof(kSummonStatTypes) / sizeof(kSummonStatTypes[0]);
+
+}} // namespace
+
+const SummonTypeEntry* find_summon_type(std::uint32_t hash) noexcept {{
+    for (const auto& entry : kSummonTypes) {{
+        if (entry.hash == hash) return &entry;
+    }}
+    return nullptr;
+}}
+
+const SummonStatTypeEntry* find_summon_stat_type(std::uint32_t hash) noexcept {{
+    for (const auto& entry : kSummonStatTypes) {{
+        if (entry.hash == hash) return &entry;
+    }}
+    return nullptr;
+}}
+
+std::size_t summon_stat_type_count() noexcept {{
+    return kSummonStatTypeCount;
+}}
+
+const SummonStatTypeEntry* summon_stat_type_at(std::size_t index) noexcept {{
+    return index < kSummonStatTypeCount ? &kSummonStatTypes[index] : nullptr;
+}}
+
+}} // namespace gbfr
+"""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", default=DEFAULT_REPOSITORY)
@@ -320,6 +408,12 @@ def main() -> None:
     existing_skills = parse_existing(SKILL_CPP)
     upstream_items = load_catalog(args.repository, args.ref, ("items.json", "sigils.json"))
     upstream_skills = load_catalog(args.repository, args.ref, ("traits.json",))
+    summons = fetch_json(args.repository, args.ref, "summons.json")
+    summon_bonuses = fetch_json(args.repository, args.ref, "summon-bonuses.json")
+    summon_bonus_values = fetch_url_json(
+        f"https://raw.githubusercontent.com/{args.repository}/{args.ref}/"
+        "src-tauri/assets/summon-bonus-values.json"
+    )
 
     items = merge_catalog(existing_items, upstream_items)
     for asset_id in SUPPLEMENTAL_ITEM_IDS:
@@ -336,9 +430,22 @@ def main() -> None:
         encoding="utf-8",
         newline="\n",
     )
+    SUMMON_CPP.write_text(
+        render_summons(
+            summons,
+            summon_bonuses,
+            summon_bonus_values,
+            args.repository,
+            args.ref,
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
 
     print(f"wrote {len(items)} item/sigil rows")
     print(f"wrote {len(skills)} trait rows")
+    print(f"wrote {len(summons)} summon rows")
+    print(f"wrote {len(summon_bonuses)} summon stat rows")
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ save::Slot Game::slot() const {
     s.gem_list                   = {*m_memory, b.gem_list};
     s.item_list                  = {*m_memory, b.item_list};
     s.item_pendulum_list         = {*m_memory, b.item_pendulum_list};
+    s.summon_stone_list          = {*m_memory, b.summon_stone_list};
     s.ability_list               = {*m_memory, b.ability_list};
     s.scenario_list              = {*m_memory, b.scenario_list};
     s.fate_ep_list               = {*m_memory, b.fate_ep_list};

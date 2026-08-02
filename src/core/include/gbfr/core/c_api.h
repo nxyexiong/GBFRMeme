@@ -2,8 +2,8 @@
 // gbfr/core/c_api.h — stable C ABI for `gbfr_core.dll`.
 //
 // Layout: lifecycle first, then one section per live game-data surface.
-// Character support remains partial; inventory, sigil, wrightstone and
-// currency sections expose read/write operations.
+// Character support remains partial; inventory, sigil, wrightstone, summon,
+// and currency sections expose read/write operations.
 //
 // Naming convention: `gbfr_<manager_snake_case>_<verb>`.
 #ifndef GBFR_CORE_C_API_H
@@ -216,6 +216,67 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_wrightstone_set_fields(
     const char* trait1_name, uint32_t trait1_level,
     const char* trait2_name, uint32_t trait2_level,
     const char* trait3_name, uint32_t trait3_level);
+
+// ---------------------------------------------------------------------------
+// 8. Summons (sys::data::SummonStoneList walking)
+//
+// Each owned summon has one trait and one stat/equip bonus.
+// ---------------------------------------------------------------------------
+
+typedef struct GbfrSummonInfo {
+    uint32_t storage_index;   // stable physical slot within this session
+    uint32_t summon_id;
+    uint32_t unknown_04;
+    uint32_t trait_id;
+    uint32_t stat_type_id;
+    uint32_t trait_level;
+    uint32_t stat_level;       // internal 0-based index into the stat value table
+    uint32_t stat_value;
+    uint32_t stat_is_percent;
+    uint32_t unknown_18;
+    char     summon_asset_id[64];
+    char     summon_name[64];
+    char     trait_asset_id[64];
+    char     trait_name[64];
+    char     stat_type_asset_id[64];
+    char     stat_type_name[64];
+} GbfrSummonInfo;
+
+#define GBFR_SUMMON_STAT_VALUE_COUNT 10u
+
+typedef struct GbfrSummonStatTypeInfo {
+    uint32_t stat_type_id;
+    uint32_t values[GBFR_SUMMON_STAT_VALUE_COUNT];
+    uint32_t is_percent;
+    char     asset_id[64];
+    char     name[64];
+} GbfrSummonStatTypeInfo;
+
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_get_count(uint32_t* out_count);
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_get_at(uint32_t index,
+                                                           GbfrSummonInfo* out_info);
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_get_by_storage_index(
+    uint32_t storage_index, GbfrSummonInfo* out_info);
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_stat_type_get_count(
+    uint32_t* out_count);
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_stat_type_get_at(
+    uint32_t index, GbfrSummonStatTypeInfo* out_info);
+
+// Update an owned summon by stable physical slot. The expected identity
+// fields prevent a stale UI row from modifying a replacement occupant.
+// `trait_name` accepts a case-insensitive display name or exact SKILL_* asset
+// ID; pass NULL or empty to preserve its ID.
+// `stat_value` is the displayed value (e.g. 2000 ATK or 30 percent), not the
+// internal 0-based stat level. Returns OUT_OF_RANGE when that value is not
+// valid for `stat_type_id`.
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_set_fields(
+    uint32_t    storage_index,
+    uint32_t    expected_summon_id,
+    uint32_t    expected_unknown_04,
+    const char* trait_name,
+    uint32_t    trait_level,
+    uint32_t    stat_type_id,
+    uint32_t    stat_value);
 
 // ---------------------------------------------------------------------------
 // 3.5 Currencies (rupies, mastery points).

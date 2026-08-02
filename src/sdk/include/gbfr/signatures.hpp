@@ -210,6 +210,7 @@ inline constexpr Address kPictureBookPendulumList    = 0x146136758ULL;
 inline constexpr Address kTipsList                   = 0x1461367c0ULL;
 inline constexpr Address kInfomationQuestList        = 0x146139788ULL;
 inline constexpr Address kInfomationDialogList       = 0x1461397f0ULL;
+inline constexpr Address kSummonStoneList            = 0x146139aa0ULL;
 inline constexpr Address kCharaList                  = 0x146139b48ULL;
 inline constexpr Address kCharaPresetList            = 0x1461364e8ULL;
 inline constexpr Address kWeaponIdSaveList           = 0x14613a030ULL;
@@ -277,6 +278,7 @@ inline constexpr std::size_t kPartySize = 4;
 inline constexpr std::uint32_t kItemListMax         = 300;
 inline constexpr std::uint32_t kGemListMax          = 5100;
 inline constexpr std::uint32_t kItemPendulumListMax = 5000;
+inline constexpr std::uint32_t kSummonStoneListMax  = 1000;
 
 } // namespace count
 
@@ -463,6 +465,11 @@ namespace item_pendulum_list {
     inline constexpr std::ptrdiff_t kEntriesOffset = 0x10;
     inline constexpr std::ptrdiff_t kEntryStride   = 0x30;
 } // namespace item_pendulum_list
+
+namespace summon_stone_list {
+    inline constexpr std::ptrdiff_t kEntriesOffset  = 0x08;
+    inline constexpr std::ptrdiff_t kEntryStride    = 0x1c;
+} // namespace summon_stone_list
 
 } // namespace offset
 

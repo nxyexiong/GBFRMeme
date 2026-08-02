@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // gbfr/ui/ui.hpp — top-level UI draw entry point.
 //
-// Renders wallet, item, sigil and wrightstone editors backed by the
+// Renders wallet, item, sigil, wrightstone, and summon editors backed by the
 // `gbfr_core` C API.
 #pragma once
 

@@ -24,6 +24,7 @@ struct Slot {
     sys::data::GemList                  gem_list;
     sys::data::ItemList                 item_list;
     sys::data::ItemPendulumList         item_pendulum_list;
+    sys::data::SummonStoneList          summon_stone_list;
     sys::data::AbilityList              ability_list;
     sys::data::ScenarioList             scenario_list;
     sys::data::FateEpList               fate_ep_list;

@@ -9,7 +9,9 @@
 #include "gbfr/save/sys_data_lists.hpp"
 #include "gbfr/signatures.hpp"
 #include "gbfr/skill_types.hpp"
+#include "gbfr/summon_types.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -82,7 +84,7 @@ GbfrStatus copy_addr_vec(const std::vector<gbfr::Address>& v,
 extern "C" {
 
 GBFR_CORE_API uint32_t GBFR_CORE_CALL gbfr_api_version(void) {
-    return 2u;
+    return 3u;
 }
 
 GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_init(GbfrAttachMode mode,
@@ -757,6 +759,241 @@ GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_wrightstone_set_fields(
         ++live;
     }
     return GBFR_ERR_OUT_OF_RANGE;
+}
+
+// ---------------------------------------------------------------------------
+// 8. Summons (sys::data::SummonStoneList walking)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+struct SummonRecordRaw {
+    std::uint32_t summon_id;
+    std::uint32_t unknown_04;
+    std::uint32_t trait_id;
+    std::uint32_t stat_type_id;
+    std::uint32_t trait_level;
+    std::uint32_t stat_level;
+    std::uint32_t unknown_18;
+};
+static_assert(
+    sizeof(SummonRecordRaw) ==
+        gbfr::signatures::offset::summon_stone_list::kEntryStride,
+    "Summon record stride mismatch");
+
+constexpr std::uint32_t kSummonRecordCount =
+    gbfr::signatures::count::kSummonStoneListMax;
+constexpr std::uint32_t kSummonEntriesOffset =
+    static_cast<std::uint32_t>(
+        gbfr::signatures::offset::summon_stone_list::kEntriesOffset);
+
+bool summon_record_is_live(const SummonRecordRaw& record) {
+    return record.summon_id != 0 &&
+           record.summon_id != gbfr::signatures::sentinel::kEmptyKey;
+}
+
+gbfr::Address summon_record_address(
+    gbfr::Address list, std::uint32_t storage_index) {
+    return list + kSummonEntriesOffset
+         + static_cast<gbfr::Address>(storage_index) * sizeof(SummonRecordRaw);
+}
+
+void fill_catalog_field(char* id_dst, std::size_t id_cap,
+                        char* name_dst, std::size_t name_cap,
+                        std::string_view asset_id,
+                        std::string_view name) {
+    const auto id_size = std::min<std::size_t>(id_cap - 1, asset_id.size());
+    const auto name_size = std::min<std::size_t>(name_cap - 1, name.size());
+    std::memcpy(id_dst, asset_id.data(), id_size);
+    std::memcpy(name_dst, name.data(), name_size);
+}
+
+void fill_summon_info(
+    std::uint32_t storage_index,
+    const SummonRecordRaw& record,
+    GbfrSummonInfo* out_info) {
+    std::memset(out_info, 0, sizeof(*out_info));
+    out_info->storage_index = storage_index;
+    out_info->summon_id     = record.summon_id;
+    out_info->unknown_04    = record.unknown_04;
+    out_info->trait_id      = record.trait_id;
+    out_info->stat_type_id  = record.stat_type_id;
+    out_info->trait_level   = record.trait_level;
+    out_info->stat_level    = record.stat_level;
+    out_info->unknown_18    = record.unknown_18;
+
+    if (const auto* summon = gbfr::find_summon_type(record.summon_id)) {
+        fill_catalog_field(
+            out_info->summon_asset_id, sizeof(out_info->summon_asset_id),
+            out_info->summon_name, sizeof(out_info->summon_name),
+            summon->asset_id, summon->name);
+    }
+    if (const auto* trait = gbfr::find_skill(record.trait_id)) {
+        fill_catalog_field(
+            out_info->trait_asset_id, sizeof(out_info->trait_asset_id),
+            out_info->trait_name, sizeof(out_info->trait_name),
+            trait->asset_id, trait->name);
+    }
+    if (const auto* stat_type =
+            gbfr::find_summon_stat_type(record.stat_type_id)) {
+        fill_catalog_field(
+            out_info->stat_type_asset_id,
+            sizeof(out_info->stat_type_asset_id),
+            out_info->stat_type_name, sizeof(out_info->stat_type_name),
+            stat_type->asset_id, stat_type->name);
+        if (record.stat_level < stat_type->values.size()) {
+            out_info->stat_value = stat_type->values[record.stat_level];
+        }
+        out_info->stat_is_percent = stat_type->is_percent ? 1u : 0u;
+    }
+}
+
+} // namespace
+
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_get_count(uint32_t* out_count) {
+    if (!out_count) return GBFR_ERR_INVALID_ARG;
+    auto* s = borrow_session_or_null();
+    if (!s) return GBFR_ERR_NOT_INIT;
+
+    const gbfr::Address list =
+        s->find_save_list(gbfr::signatures::vft::kSummonStoneList);
+    if (list == 0) {
+        *out_count = 0;
+        return GBFR_ERR_NOT_FOUND;
+    }
+
+    std::uint32_t live = 0;
+    for (std::uint32_t i = 0; i < kSummonRecordCount; ++i) {
+        SummonRecordRaw record{};
+        const auto address = summon_record_address(list, i);
+        if (!s->memory().read(address, &record, sizeof(record))) {
+            return GBFR_ERR_PLATFORM;
+        }
+        if (summon_record_is_live(record)) ++live;
+    }
+    *out_count = live;
+    return GBFR_OK;
+}
+
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_get_at(
+    uint32_t index, GbfrSummonInfo* out_info) {
+    if (!out_info) return GBFR_ERR_INVALID_ARG;
+    auto* s = borrow_session_or_null();
+    if (!s) return GBFR_ERR_NOT_INIT;
+    const gbfr::Address list =
+        s->find_save_list(gbfr::signatures::vft::kSummonStoneList);
+    if (list == 0) return GBFR_ERR_NOT_FOUND;
+
+    std::uint32_t live = 0;
+    for (std::uint32_t i = 0; i < kSummonRecordCount; ++i) {
+        SummonRecordRaw record{};
+        const auto address = summon_record_address(list, i);
+        if (!s->memory().read(address, &record, sizeof(record))) {
+            return GBFR_ERR_PLATFORM;
+        }
+        if (!summon_record_is_live(record)) continue;
+        if (live == index) {
+            fill_summon_info(i, record, out_info);
+            return GBFR_OK;
+        }
+        ++live;
+    }
+    return GBFR_ERR_OUT_OF_RANGE;
+}
+
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_get_by_storage_index(
+    uint32_t storage_index, GbfrSummonInfo* out_info) {
+    if (!out_info) return GBFR_ERR_INVALID_ARG;
+    if (storage_index >= kSummonRecordCount) return GBFR_ERR_OUT_OF_RANGE;
+    auto* s = borrow_session_or_null();
+    if (!s) return GBFR_ERR_NOT_INIT;
+
+    const gbfr::Address list =
+        s->find_save_list(gbfr::signatures::vft::kSummonStoneList);
+    if (list == 0) return GBFR_ERR_NOT_FOUND;
+
+    SummonRecordRaw record{};
+    const auto address = summon_record_address(list, storage_index);
+    if (!s->memory().read(address, &record, sizeof(record))) {
+        return GBFR_ERR_PLATFORM;
+    }
+    if (!summon_record_is_live(record)) return GBFR_ERR_NOT_FOUND;
+    fill_summon_info(storage_index, record, out_info);
+    return GBFR_OK;
+}
+
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_stat_type_get_count(
+    uint32_t* out_count) {
+    if (!out_count) return GBFR_ERR_INVALID_ARG;
+    *out_count = static_cast<uint32_t>(gbfr::summon_stat_type_count());
+    return GBFR_OK;
+}
+
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_stat_type_get_at(
+    uint32_t index, GbfrSummonStatTypeInfo* out_info) {
+    if (!out_info) return GBFR_ERR_INVALID_ARG;
+    std::memset(out_info, 0, sizeof(*out_info));
+    const auto* entry = gbfr::summon_stat_type_at(index);
+    if (!entry) return GBFR_ERR_OUT_OF_RANGE;
+
+    out_info->stat_type_id = entry->hash;
+    out_info->is_percent = entry->is_percent ? 1u : 0u;
+    std::copy(entry->values.begin(), entry->values.end(), out_info->values);
+    fill_catalog_field(
+        out_info->asset_id, sizeof(out_info->asset_id),
+        out_info->name, sizeof(out_info->name),
+        entry->asset_id, entry->name);
+    return GBFR_OK;
+}
+
+GBFR_CORE_API GbfrStatus GBFR_CORE_CALL gbfr_summon_set_fields(
+    uint32_t storage_index,
+    uint32_t expected_summon_id,
+    uint32_t expected_unknown_04,
+    const char* trait_name,
+    uint32_t trait_level,
+    uint32_t stat_type_id,
+    uint32_t stat_value) {
+    auto* s = borrow_session_or_null();
+    if (!s) return GBFR_ERR_NOT_INIT;
+    if (storage_index >= kSummonRecordCount) return GBFR_ERR_OUT_OF_RANGE;
+
+    const gbfr::Address list =
+        s->find_save_list(gbfr::signatures::vft::kSummonStoneList);
+    if (list == 0) return GBFR_ERR_NOT_FOUND;
+
+    const bool have_trait = trait_name && trait_name[0] != '\0';
+    const auto* stat_type = gbfr::find_summon_stat_type(stat_type_id);
+    if (!stat_type) return GBFR_ERR_NOT_FOUND;
+    const auto stat_value_it =
+        std::find(stat_type->values.begin(), stat_type->values.end(), stat_value);
+    if (stat_value_it == stat_type->values.end()) return GBFR_ERR_OUT_OF_RANGE;
+    const auto stat_level = static_cast<std::uint32_t>(
+        std::distance(stat_type->values.begin(), stat_value_it));
+
+    SummonRecordRaw record{};
+    const auto address = summon_record_address(list, storage_index);
+    if (!s->memory().read(address, &record, sizeof(record))) {
+        return GBFR_ERR_PLATFORM;
+    }
+    if (!summon_record_is_live(record) ||
+        record.summon_id != expected_summon_id ||
+        record.unknown_04 != expected_unknown_04) {
+        return GBFR_ERR_NOT_FOUND;
+    }
+
+    if (have_trait) {
+        const auto* entry = gbfr::find_skill_by_name(
+            trait_name, record.trait_id);
+        if (!entry) return GBFR_ERR_NOT_FOUND;
+        record.trait_id = entry->hash;
+    }
+    record.trait_level = trait_level;
+    record.stat_type_id = stat_type_id;
+    record.stat_level = stat_level;
+
+    return s->memory().write(address, &record, sizeof(record))
+        ? GBFR_OK : GBFR_ERR_PLATFORM;
 }
 
 // ---------------------------------------------------------------------------

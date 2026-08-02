@@ -205,4 +205,10 @@ public:
     using SaveTempListBase::SaveTempListBase;
 };
 
+class SummonStoneList         : public save::SaveTempListBase<save::row::SummonStoneData, std::uint32_t, 1000,  999> {
+public:
+    static constexpr Address kVftableRva = signatures::vft::kSummonStoneList;
+    using SaveTempListBase::SaveTempListBase;
+};
+
 } // namespace gbfr::sys::data

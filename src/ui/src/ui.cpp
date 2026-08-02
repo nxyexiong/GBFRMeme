@@ -10,6 +10,7 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -542,6 +543,202 @@ void section_wrightstones() {
     }
 }
 
+void section_summons() {
+    if (!ImGui::CollapsingHeader("Summons", ImGuiTreeNodeFlags_DefaultOpen)) {
+        return;
+    }
+
+    struct Row {
+        std::uint32_t  live_index;
+        GbfrSummonInfo info;
+        int            edit_trait_level;
+        int            edit_stat_value;
+        std::uint32_t  edit_stat_type_id;
+        bool           edit_stat_is_percent;
+        char           edit_trait_name[64];
+    };
+    static std::vector<Row> s_rows;
+    static std::vector<GbfrSummonStatTypeInfo> s_stat_types;
+    static char             s_filter[64]  = "";
+    static char             s_status[128] = "";
+
+    auto report = [&](const char* op, GbfrStatus st) {
+        if (st == GBFR_OK) {
+            std::snprintf(s_status, sizeof(s_status), "%s: OK", op);
+        } else {
+            std::snprintf(s_status, sizeof(s_status), "%s: status=%d", op, (int)st);
+        }
+    };
+
+    auto load_row = [](Row& row, const GbfrSummonInfo& info) {
+        row.info             = info;
+        row.edit_trait_level = (int)info.trait_level;
+        row.edit_stat_value  = (int)info.stat_value;
+        row.edit_stat_type_id = info.stat_type_id;
+        row.edit_stat_is_percent = info.stat_is_percent != 0;
+        std::snprintf(row.edit_trait_name, sizeof(row.edit_trait_name), "%s",
+                      info.trait_name);
+    };
+
+    auto refresh_all = [&]() {
+        s_rows.clear();
+        s_stat_types.clear();
+
+        std::uint32_t stat_type_count = 0;
+        GbfrStatus st = gbfr_summon_stat_type_get_count(&stat_type_count);
+        if (st != GBFR_OK) { report("load stat types", st); return; }
+        s_stat_types.reserve(stat_type_count);
+        for (std::uint32_t i = 0; i < stat_type_count; ++i) {
+            GbfrSummonStatTypeInfo info{};
+            if (gbfr_summon_stat_type_get_at(i, &info) == GBFR_OK) {
+                s_stat_types.push_back(info);
+            }
+        }
+
+        std::uint32_t count = 0;
+        st = gbfr_summon_get_count(&count);
+        if (st != GBFR_OK) { report("refresh", st); return; }
+        s_rows.reserve(count);
+        for (std::uint32_t i = 0; i < count; ++i) {
+            Row row{};
+            row.live_index = i;
+            GbfrSummonInfo info{};
+            st = gbfr_summon_get_at(i, &info);
+            if (st != GBFR_OK) {
+                s_rows.clear();
+                report("refresh", st);
+                return;
+            }
+            load_row(row, info);
+            s_rows.push_back(row);
+        }
+        std::snprintf(s_status, sizeof(s_status),
+                      "refresh: %zu summon(s)", s_rows.size());
+    };
+
+    if (ImGui::Button("Refresh##summons")) {
+        refresh_all();
+    }
+    ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("filter:");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(240.0f);
+    ImGui::InputText("##summon_filter", s_filter, sizeof(s_filter));
+    if (s_status[0]) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("  %s", s_status);
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    for (auto& row : s_rows) {
+        if (!any_field_matches_filter(
+                s_filter,
+                {row.info.summon_name,
+                 row.info.trait_name,
+                 row.info.stat_type_name})) {
+            continue;
+        }
+
+        ImGui::PushID((int)row.live_index);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("[%3u] %-24s",
+                    row.live_index,
+                    row.info.summon_name[0]
+                        ? row.info.summon_name : "<unknown>");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(170.0f);
+        ImGui::InputText("##trait", row.edit_trait_name,
+                         sizeof(row.edit_trait_name));
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(45.0f);
+        ImGui::InputInt("##trait_level", &row.edit_trait_level, 0);
+        if (row.edit_trait_level < 0) row.edit_trait_level = 0;
+        ImGui::SameLine();
+        const GbfrSummonStatTypeInfo* selected_stat = nullptr;
+        for (const auto& stat_type : s_stat_types) {
+            if (stat_type.stat_type_id == row.edit_stat_type_id) {
+                selected_stat = &stat_type;
+                break;
+            }
+        }
+        char stat_preview[128];
+        if (selected_stat) {
+            std::snprintf(stat_preview, sizeof(stat_preview), "%s [%08X]",
+                          selected_stat->name, selected_stat->stat_type_id);
+        } else {
+            std::snprintf(stat_preview, sizeof(stat_preview), "0x%08X",
+                          row.edit_stat_type_id);
+        }
+        ImGui::SetNextItemWidth(205.0f);
+        if (ImGui::BeginCombo("##stat_type", stat_preview)) {
+            for (const auto& stat_type : s_stat_types) {
+                char option_label[128];
+                std::snprintf(option_label, sizeof(option_label), "%s [%08X]",
+                              stat_type.name, stat_type.stat_type_id);
+                const bool selected =
+                    stat_type.stat_type_id == row.edit_stat_type_id;
+                if (ImGui::Selectable(option_label, selected)) {
+                    row.edit_stat_type_id = stat_type.stat_type_id;
+                    row.edit_stat_is_percent = stat_type.is_percent != 0;
+                    const auto level = std::min<std::uint32_t>(
+                        row.info.stat_level, GBFR_SUMMON_STAT_VALUE_COUNT - 1);
+                    row.edit_stat_value = (int)stat_type.values[level];
+                }
+                if (selected) ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(65.0f);
+        ImGui::InputInt("##stat_value", &row.edit_stat_value, 0);
+        if (row.edit_stat_value < 0) row.edit_stat_value = 0;
+        if (row.edit_stat_is_percent) {
+            ImGui::SameLine();
+            ImGui::TextUnformatted("%");
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Get")) {
+            GbfrSummonInfo fresh{};
+            GbfrStatus st = gbfr_summon_get_by_storage_index(
+                row.info.storage_index, &fresh);
+            if (st == GBFR_OK &&
+                (fresh.summon_id != row.info.summon_id ||
+                 fresh.unknown_04 != row.info.unknown_04)) {
+                st = GBFR_ERR_NOT_FOUND;
+            }
+            if (st == GBFR_OK) load_row(row, fresh);
+            report("get summon", st);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Set")) {
+            GbfrStatus st = gbfr_summon_set_fields(
+                row.info.storage_index,
+                row.info.summon_id,
+                row.info.unknown_04,
+                row.edit_trait_name,
+                (std::uint32_t)row.edit_trait_level,
+                row.edit_stat_type_id,
+                (std::uint32_t)row.edit_stat_value);
+            if (st == GBFR_OK) {
+                GbfrSummonInfo fresh{};
+                st = gbfr_summon_get_by_storage_index(
+                    row.info.storage_index, &fresh);
+                if (st == GBFR_OK &&
+                    (fresh.summon_id != row.info.summon_id ||
+                     fresh.unknown_04 != row.info.unknown_04)) {
+                    st = GBFR_ERR_NOT_FOUND;
+                }
+                if (st == GBFR_OK) load_row(row, fresh);
+            }
+            report("set summon", st);
+        }
+        ImGui::PopID();
+    }
+}
+
 } // namespace
 
 void draw() {
@@ -559,6 +756,7 @@ void draw() {
         section_items();
         section_sigils();
         section_wrightstones();
+        section_summons();
     }
     ImGui::End();
 }

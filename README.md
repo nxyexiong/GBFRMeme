@@ -6,7 +6,7 @@ game's internal structures and a small DLL that can be loaded into (or
 attached from outside) the running game process.
 
 > **Supported game build:** Steam build `24245499` (2026-07-31).
-> Wallet, item, sigil and wrightstone reads/writes are live. Character and
+> Wallet, item, sigil, wrightstone, and summon reads/writes are live. Character and
 > broader manager wrappers remain partial where fields are still marked
 > `GBFR_TODO_OFFSET(...)`.
 
@@ -70,7 +70,7 @@ All vftable RVAs are encoded against the design-time image base
 `0x140000000`. At runtime they are translated to live addresses via
 `rva_to_absolute(module_base, rva)` in `common.hpp`.
 
-The game 2.0 English item, sigil and trait catalogs are generated from the
+The game 2.0 English item, sigil, trait, summon, and summon-stat catalogs are generated from the
 current `villith/relink-logs` data with `python scripts/update_catalogs.py`.
 
 ## Core DLL — `src/core/include/gbfr/core/`
@@ -85,7 +85,7 @@ scanning, and exposes a **stable C ABI** so non-C++ hosts can drive it.
 | [`memory/external_memory.hpp`](src/core/include/gbfr/core/memory/external_memory.hpp) | `IMemory` backed by `ReadProcessMemory` / `WriteProcessMemory` |
 | [`signatures.hpp`](src/core/include/gbfr/core/signatures.hpp)     | IDA-style `compile_pattern` + `find_pattern` + `find_lea_refs_to` heuristic for locating `cyan::Singleton<T>` installers |
 | [`session.hpp`](src/core/include/gbfr/core/session.hpp)           | `Session::attach_in_process()` / `attach_external_by_name(...)`, owns the `IMemory` and the SDK `Game` |
-| [`c_api.h`](src/core/include/gbfr/core/c_api.h)                   | Lifecycle plus character, combat, inventory, sigil, wrightstone, currency and debug entry points |
+| [`c_api.h`](src/core/include/gbfr/core/c_api.h)                   | Lifecycle plus character, combat, inventory, sigil, wrightstone, summon, currency and debug entry points |
 
 The DLL is `gbfr_core.dll`. `gbfr_api_version()` is reserved for ABI
 bumping. All ABI functions are `__cdecl` and use the `GbfrStatus` enum.
